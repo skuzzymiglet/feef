@@ -14,8 +14,10 @@ import (
 )
 
 // func getFeed(url string, wg *sync.WaitGroup) (*gofeed.Feed, error) {
-func getFeed(url string) (*gofeed.Feed, error) {
+func getFeed(url string, m *sync.Mutex) (*gofeed.Feed, error) {
+	m.Lock()
 	resp, err := http.Get(url)
+	m.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +30,7 @@ func getFeed(url string) (*gofeed.Feed, error) {
 func main() {
 	defer profile.Start().Stop()
 	start := time.Now()
-	urlsFile, err := os.Open("urls")
+	urlsFile, err := os.Open("urls2")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,11 +38,12 @@ func main() {
 	urls := strings.Split(string(urlNames), "\n")
 	urls = urls[0 : len(urls)-1]
 	var wg sync.WaitGroup
+	var m sync.Mutex
 	for i, v := range urls {
 		wg.Add(1)
-		go func(i int, v string, wg *sync.WaitGroup) {
+		go func(i int, v string, wg *sync.WaitGroup, m *sync.Mutex) {
 			start := time.Now()
-			_, err := getFeed(v)
+			_, err := getFeed(v, m)
 			end := time.Now()
 			if err != nil {
 				log.Warnln(i, v, err)
@@ -48,9 +51,10 @@ func main() {
 				log.Infof("Fetched feed %d (%s) in %s\n", i, v, end.Sub(start))
 			}
 			wg.Done()
-		}(i, v, &wg)
+		}(i, v, &wg, &m)
 	}
 	wg.Wait()
 	end := time.Now()
 	log.Infoln("Fetched all in", end.Sub(start))
+	log.Infof("%s per feed\n", end.Sub(start)/time.Duration(len(urls)))
 }
