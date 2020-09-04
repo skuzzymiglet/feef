@@ -1,1 +1,4 @@
-urls*
+*
+!*.go
+!go.mod
+!go.sum
