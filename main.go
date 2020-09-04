@@ -2,19 +2,36 @@ package main
 
 import (
 	"io/ioutil"
+	"log"
 	"net/http"
-	"net/url"
 	"os"
-	"strconv"
+	"strings"
 	"sync"
-	"time"
 
+	"github.com/dgraph-io/badger"
 	"github.com/mmcdole/gofeed"
 	"github.com/pkg/profile"
-	log "github.com/sirupsen/logrus"
+
+	"github.com/bartmeuris/progressio"
 )
 
-// func getFeed(url string, wg *sync.WaitGroup) (*gofeed.Feed, error) {
+type Feeds struct {
+	Feeds     []gofeed.Feed
+	db        *badger.DB
+	updates   chan *gofeed.Feed
+	httpMutex *sync.Mutex
+}
+
+type _ interface {
+	SetURLs([]string) error
+	NotifyUpdates() <-chan *gofeed.Feed
+	Fetch(string) (<-chan progressio.Progress, error)
+	FetchAll() (<-chan struct {
+		url string
+		p   progressio.Progress
+	}, error)
+}
+
 func getFeed(url string, m *sync.Mutex) (*gofeed.Feed, error) {
 	m.Lock()
 	resp, err := http.Get(url)
@@ -28,43 +45,22 @@ func getFeed(url string, m *sync.Mutex) (*gofeed.Feed, error) {
 	return parser.ParseString(s)
 }
 
+func (f *Feeds) SetURLS([]string) error {
+	return nil
+}
+
 func main() {
 	defer profile.Start().Stop()
-	start := time.Now()
+	var f Feeds
 	urlsFile, err := os.Open("urls2")
 	defer urlsFile.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
-	// lines := bufio.NewScanner(urlsFile)
-	var wg sync.WaitGroup
-	var m sync.Mutex
-	// for lines.Scan() {
-	test, err := url.Parse("https://skuz.xyz")
+	b, err := ioutil.ReadAll(urlsFile)
+	strs := strings.Split(string(b), "\n")
+	err = f.SetURLS(strs[:len(strs)-2])
 	if err != nil {
 		log.Fatal(err)
 	}
-	test.Path += "/randomRSS/rss"
-	var i int64
-	for i = 0; i <= 1_000_000; i++ {
-		params := url.Values{}
-		params.Add("seed", strconv.FormatInt(i, 10))
-		params.Add("items", strconv.FormatInt(i, 10))
-		test.RawQuery = params.Encode()
-		wg.Add(1)
-		go func(v string, wg *sync.WaitGroup, m *sync.Mutex) {
-
-			_, err := getFeed(v, m)
-			if err != nil {
-				log.Fatalln(v, err)
-			} else {
-				log.Infof("Fetched feed %s", v)
-			}
-			wg.Done()
-		}(test.String(), &wg, &m)
-	}
-	wg.Wait()
-	end := time.Now()
-	log.Infoln("Fetched all in", end.Sub(start))
-	// log.Infof("%s per feed\n", end.Sub(start)/time.Duration(len(urls)))
 }
