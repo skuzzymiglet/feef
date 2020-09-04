@@ -3,8 +3,9 @@ package main
 import (
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -31,30 +32,39 @@ func main() {
 	defer profile.Start().Stop()
 	start := time.Now()
 	urlsFile, err := os.Open("urls2")
+	defer urlsFile.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
-	urlNames, err := ioutil.ReadAll(urlsFile)
-	urls := strings.Split(string(urlNames), "\n")
-	urls = urls[0 : len(urls)-1]
+	// lines := bufio.NewScanner(urlsFile)
 	var wg sync.WaitGroup
 	var m sync.Mutex
-	for i, v := range urls {
+	// for lines.Scan() {
+	test, err := url.Parse("https://skuz.xyz")
+	if err != nil {
+		log.Fatal(err)
+	}
+	test.Path += "/randomRSS/rss"
+	var i int64
+	for i = 0; i <= 1_000_000; i++ {
+		params := url.Values{}
+		params.Add("seed", strconv.FormatInt(i, 10))
+		params.Add("items", strconv.FormatInt(i, 10))
+		test.RawQuery = params.Encode()
 		wg.Add(1)
-		go func(i int, v string, wg *sync.WaitGroup, m *sync.Mutex) {
-			start := time.Now()
+		go func(v string, wg *sync.WaitGroup, m *sync.Mutex) {
+
 			_, err := getFeed(v, m)
-			end := time.Now()
 			if err != nil {
-				log.Warnln(i, v, err)
+				log.Fatalln(v, err)
 			} else {
-				log.Infof("Fetched feed %d (%s) in %s\n", i, v, end.Sub(start))
+				log.Infof("Fetched feed %s", v)
 			}
 			wg.Done()
-		}(i, v, &wg, &m)
+		}(test.String(), &wg, &m)
 	}
 	wg.Wait()
 	end := time.Now()
 	log.Infoln("Fetched all in", end.Sub(start))
-	log.Infof("%s per feed\n", end.Sub(start)/time.Duration(len(urls)))
+	// log.Infof("%s per feed\n", end.Sub(start)/time.Duration(len(urls)))
 }
