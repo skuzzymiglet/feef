@@ -8,4 +8,5 @@ require (
 	github.com/mmcdole/gofeed v1.0.0
 	github.com/pkg/profile v1.5.0
 	github.com/sirupsen/logrus v1.6.0
+	github.com/vmihailenco/msgpack/v5 v5.0.0-beta.1
 )
