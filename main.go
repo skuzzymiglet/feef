@@ -76,6 +76,7 @@ func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan e
 
 func main() {
 	log.SetLevel(log.FatalLevel)
+	// Create Feeds
 	var f Feeds
 	c := make(chan multiProgress)
 	e := make(chan error)
@@ -83,6 +84,7 @@ func main() {
 		MaxIdleConns:    10,
 		IdleConnTimeout: time.Second * 5,
 	}}
+	// URLs to test with
 	urls := make([]string, 0)
 	urlsFile, err := os.Open("urls")
 	if err != nil {
@@ -92,18 +94,15 @@ func main() {
 	for s.Scan() {
 		urls = append(urls, s.Text())
 	}
-	gauges := make(map[string]*widgets.Gauge, len(urls))
-	go func() {
-		for v := range c {
-			log.Trace(v)
-		}
-		close(c)
-	}()
+	// Start
 	go f.Fetch(urls, c, e)
+	// termui
 	if err := termui.Init(); err != nil {
 		log.Fatal(err)
 	}
 	defer termui.Close()
+	gauges := make(map[string]*widgets.Gauge, len(urls))
+	// Boxes for the gauges
 	boxes := make(map[string][4]int, len(urls))
 	var cx, cy int
 	w, h := termui.TerminalDimensions()
@@ -113,6 +112,7 @@ func main() {
 		boxes[v] = [4]int{cx, cy, cx + w, cy + gaugeHeight}
 		cy += gaugeHeight
 	}
+	// Respond to progress
 	go func() {
 		for v := range c {
 			gauges[v.url] = widgets.NewGauge()
@@ -122,6 +122,7 @@ func main() {
 			termui.Render(gauges[v.url])
 		}
 	}()
+	// Warn of errors
 	for err := range e {
 		log.Warn(err)
 	}
