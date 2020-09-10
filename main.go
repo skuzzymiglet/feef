@@ -1,31 +1,29 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"math"
 	"net/http"
+	"os"
 	"sync"
+	"time"
 
-	"github.com/dgraph-io/badger"
+	"github.com/gizak/termui/v3"
+	"github.com/gizak/termui/v3/widgets"
 	"github.com/mmcdole/gofeed"
-	"github.com/pkg/profile"
 
 	"github.com/bartmeuris/progressio"
 	log "github.com/sirupsen/logrus"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Feeds holds RSS/Atom feeds and a database. It provides download/parse progress and a channel for feed updates
-
+// Feeds holds RSS/Atom feeds and a database (in the future). It provides download/parse progress and a channel for feed updates
 type Feeds struct {
-	Feeds     map[string]gofeed.Feed
-	DB        *badger.DB
-	updates   chan *gofeed.Feed
-	httpMutex *sync.Mutex // Currently unused
-}
-
-type _ interface {
-	NotifyUpdates() <-chan *gofeed.Feed
-	Fetch(progressChans map[string]chan progressio.Progress) error
+	Feeds map[string]gofeed.Feed
+	// DB         *badger.DB // Currently unused
+	updates    chan *gofeed.Feed
+	httpClient *http.Client
+	// gauges     map[string]*widgets.Gauge
 }
 
 type multiProgress struct {
@@ -35,7 +33,6 @@ type multiProgress struct {
 
 // Fetch fetches urls
 func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan error) {
-	parser := gofeed.NewParser()
 	var wg sync.WaitGroup
 	defer close(errChan)
 	// defer close(progress)
@@ -44,39 +41,33 @@ func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan e
 		go func(e chan error, url string, p chan multiProgress, wg *sync.WaitGroup) {
 			defer wg.Done()
 			defer log.Println(url, "done")
-			resp, err := http.Get(url)
-			if err != nil {
-				e <- fmt.Errorf("http.Get error on %s: %w", url, err)
-			}
-			progressReader, tmp := progressio.NewProgressReader(resp.Body, resp.ContentLength)
-			defer progressReader.Close()
-			go func() {
-				for v := range tmp {
-					p <- multiProgress{url: url, v: v}
+			// f.gauges[url] = widgets.NewGauge()
+			var feed *gofeed.Feed
+			if f.httpClient != nil {
+				resp, err := f.httpClient.Get(url)
+				if err != nil {
+					e <- fmt.Errorf("http.Get error on %s: %w", url, err)
 				}
-			}()
-			feed, err := parser.Parse(progressReader)
-			if err != nil {
-				e <- fmt.Errorf("parse error on %s: %w", url, err)
+				progressReader, tmp := progressio.NewProgressReader(resp.Body, resp.ContentLength)
+				defer progressReader.Close()
+				go func() {
+					for v := range tmp {
+						p <- multiProgress{url: url, v: v}
+						// f.gauges[url].Percent = int(v.Percent)
+						// f.gauges[url].Title = url
+					}
+				}()
+				parser := gofeed.NewParser()
+				feed, err = parser.Parse(progressReader)
+				if err != nil {
+					e <- fmt.Errorf("parse error on %s: %w", url, err)
+				}
 			}
 			if feed != nil {
-				log.Warn("url:", url)
 				if f.Feeds == nil {
 					f.Feeds = make(map[string]gofeed.Feed, 0)
 				}
 				f.Feeds[url] = *feed
-				if f.DB != nil {
-					a, err := msgpack.Marshal(feed)
-					if err != nil {
-						e <- fmt.Errorf("msgpack.Marshal error on %s: %w", url, err)
-					}
-					log.Warnf("msgpack encoded length of %s: %d\n", url, len(a))
-					err = f.DB.Update(func(txn *badger.Txn) error {
-						log.Infof("ADDING %s to cache\n", url)
-						txn.Set([]byte(url), a)
-						return nil
-					})
-				}
 			}
 		}(errChan, v, progress, &wg)
 	}
@@ -84,29 +75,53 @@ func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan e
 }
 
 func main() {
-	defer profile.Start().Stop()
+	log.SetLevel(log.FatalLevel)
 	var f Feeds
 	c := make(chan multiProgress)
 	e := make(chan error)
-	dbt, err := badger.Open(badger.DefaultOptions("test.db"))
+	f.httpClient = &http.Client{Transport: &http.Transport{
+		MaxIdleConns:    10,
+		IdleConnTimeout: time.Second * 5,
+	}}
+	urls := make([]string, 0)
+	urlsFile, err := os.Open("urls")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer dbt.Close()
-	f.DB = dbt
+	s := bufio.NewScanner(urlsFile)
+	for s.Scan() {
+		urls = append(urls, s.Text())
+	}
+	gauges := make(map[string]*widgets.Gauge, len(urls))
 	go func() {
 		for v := range c {
 			log.Trace(v)
 		}
 		close(c)
 	}()
-	go f.Fetch([]string{
-		"https://www.arp242.net/feed.xml",
-		"https://reddit.com/golang.rss",
-		"https://skuz.xyz/randomRSS/rss?items=100000?seed=000000",
-		"https://golangcode.com/index.xml",
-		"https://dave.cheney.net/feed/atom",
-	}, c, e)
+	go f.Fetch(urls, c, e)
+	if err := termui.Init(); err != nil {
+		log.Fatal(err)
+	}
+	defer termui.Close()
+	boxes := make(map[string][4]int, len(urls))
+	var cx, cy int
+	w, h := termui.TerminalDimensions()
+	gaugeHeight := int(math.Floor(float64(h) / float64(len(urls))))
+	for _, v := range urls {
+		// x1, y1, x2, y2
+		boxes[v] = [4]int{cx, cy, cx + w, cy + gaugeHeight}
+		cy += gaugeHeight
+	}
+	go func() {
+		for v := range c {
+			gauges[v.url] = widgets.NewGauge()
+			gauges[v.url].Title = v.url
+			gauges[v.url].Percent = int(v.v.Percent)
+			gauges[v.url].SetRect(boxes[v.url][0], boxes[v.url][1], boxes[v.url][2], boxes[v.url][3])
+			termui.Render(gauges[v.url])
+		}
+	}()
 	for err := range e {
 		log.Warn(err)
 	}
