@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -78,8 +79,8 @@ func main() {
 	log.SetLevel(log.FatalLevel)
 	// Create Feeds
 	var f Feeds
-	c := make(chan multiProgress)
-	e := make(chan error)
+	progressChan := make(chan multiProgress)
+	errChan := make(chan error)
 	f.httpClient = &http.Client{Transport: &http.Transport{
 		MaxIdleConns:    10,
 		IdleConnTimeout: time.Second * 5,
@@ -95,7 +96,7 @@ func main() {
 		urls = append(urls, s.Text())
 	}
 	// Start
-	go f.Fetch(urls, c, e)
+	go f.Fetch(urls, progressChan, errChan)
 	// termui
 	if err := termui.Init(); err != nil {
 		log.Fatal(err)
@@ -104,7 +105,9 @@ func main() {
 	gauges := make(map[string]*widgets.Gauge, len(urls))
 	// Boxes for the gauges
 	boxes := make(map[string][4]int, len(urls))
+	tabpaneHeight := 3
 	var cx, cy int
+	cy = tabpaneHeight
 	w, h := termui.TerminalDimensions()
 	gaugeHeight := int(math.Floor(float64(h) / float64(len(urls))))
 	for _, v := range urls {
@@ -112,18 +115,53 @@ func main() {
 		boxes[v] = [4]int{cx, cy, cx + w, cy + gaugeHeight}
 		cy += gaugeHeight
 	}
-	// Respond to progress
-	go func() {
-		for v := range c {
-			gauges[v.url] = widgets.NewGauge()
-			gauges[v.url].Title = v.url
-			gauges[v.url].Percent = int(v.v.Percent)
-			gauges[v.url].SetRect(boxes[v.url][0], boxes[v.url][1], boxes[v.url][2], boxes[v.url][3])
-			termui.Render(gauges[v.url])
+	uiEvents := termui.PollEvents()
+	tabpane := widgets.NewTabPane("unread", "progress")
+	tabpane.SetRect(0, 0, w, tabpaneHeight)
+	tabpane.Border = true
+	tabpane.ActiveTabStyle = termui.Style{
+		Fg: 1,
+		Bg: 23,
+	}
+	tabpane.InactiveTabStyle = termui.Style{
+		Bg: 1,
+		Fg: 23,
+	}
+	termui.Render(tabpane)
+
+	currentTab := 2
+	for {
+		select {
+		case ev := <-uiEvents:
+			switch ev.ID {
+			case "q":
+				log.Println("Quitting")
+				os.Exit(0)
+			case "1", "2":
+				currentTab, err := strconv.Atoi(ev.ID)
+				if err != nil {
+					log.Warn(err)
+				}
+				tabpane.ActiveTabIndex = currentTab
+				log.Fatal("rendering tabpane")
+				termui.Render(tabpane)
+				termui.Clear()
+				if currentTab == 2 {
+					for _, v := range gauges {
+						termui.Render(v)
+					}
+				}
+			}
+		case v := <-progressChan:
+			if currentTab == 2 {
+				gauges[v.url] = widgets.NewGauge()
+				gauges[v.url].Title = v.url
+				gauges[v.url].Percent = int(v.v.Percent)
+				gauges[v.url].SetRect(boxes[v.url][0], boxes[v.url][1], boxes[v.url][2], boxes[v.url][3])
+				termui.Render(gauges[v.url])
+			}
+		case e := <-errChan:
+			log.Warn(e)
 		}
-	}()
-	// Warn of errors
-	for err := range e {
-		log.Warn(err)
 	}
 }
