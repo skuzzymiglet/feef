@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,18 +12,17 @@ import (
 	"github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
 	"github.com/mmcdole/gofeed"
+	"github.com/pkg/profile"
 
 	"github.com/bartmeuris/progressio"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
-// Feeds holds RSS/Atom feeds and a database (in the future). It provides download/parse progress and a channel for feed updates
+// Feeds holds RSS/Atom feeds
 type Feeds struct {
-	Feeds map[string]gofeed.Feed
-	// DB         *badger.DB // Currently unused
+	Feeds      map[string]gofeed.Feed
 	updates    chan *gofeed.Feed
 	httpClient *http.Client
-	// gauges     map[string]*widgets.Gauge
 }
 
 type multiProgress struct {
@@ -32,7 +30,6 @@ type multiProgress struct {
 	v   progressio.Progress
 }
 
-// Fetch fetches urls
 func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan error) {
 	var wg sync.WaitGroup
 	defer close(errChan)
@@ -41,7 +38,6 @@ func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan e
 		wg.Add(1)
 		go func(e chan error, url string, p chan multiProgress, wg *sync.WaitGroup) {
 			defer wg.Done()
-			defer log.Println(url, "done")
 			// f.gauges[url] = widgets.NewGauge()
 			var feed *gofeed.Feed
 			if f.httpClient != nil {
@@ -76,7 +72,12 @@ func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan e
 }
 
 func main() {
-	log.SetLevel(log.FatalLevel)
+	defer profile.Start().Stop()
+
+	// Logging
+	log := logrus.New()
+	log.SetLevel(logrus.FatalLevel)
+
 	// Create Feeds
 	var f Feeds
 	progressChan := make(chan multiProgress)
@@ -102,34 +103,39 @@ func main() {
 		log.Fatal(err)
 	}
 	defer termui.Close()
-	gauges := make(map[string]*widgets.Gauge, len(urls))
-	// Boxes for the gauges
-	boxes := make(map[string][4]int, len(urls))
-	tabpaneHeight := 3
-	var cx, cy int
-	cy = tabpaneHeight
+	barHeight := 3
 	w, h := termui.TerminalDimensions()
-	gaugeHeight := int(math.Floor(float64(h) / float64(len(urls))))
-	for _, v := range urls {
-		// x1, y1, x2, y2
-		boxes[v] = [4]int{cx, cy, cx + w, cy + gaugeHeight}
-		cy += gaugeHeight
-	}
 	uiEvents := termui.PollEvents()
-	tabpane := widgets.NewTabPane("unread", "progress")
-	tabpane.SetRect(0, 0, w, tabpaneHeight)
+
+	// Log messages
+	messages := widgets.NewParagraph()
+	messages.Text = "message"
+
+	tabs := []string{"new", "unread", "old", "queue", "jobs"}
+	tabWidgets := make([]termui.Drawable, 5)
+
+	tabWidgets[0] = widgets.NewParagraph()
+	tabWidgets[0].(*widgets.Paragraph).Text = "memes"
+	tabWidgets[0].SetRect(0, barHeight, w, h)
+	tabWidgets[1] = tabWidgets[0]
+	tabWidgets[2] = tabWidgets[0]
+	tabWidgets[3] = tabWidgets[0]
+	tabWidgets[4] = tabWidgets[0]
+
+	tabpane := widgets.NewTabPane(tabs...)
+	tabpane.SetRect(0, 0, w, barHeight)
 	tabpane.Border = true
 	tabpane.ActiveTabStyle = termui.Style{
-		Fg: 1,
-		Bg: 23,
+		Fg:       15,
+		Bg:       0,
+		Modifier: termui.ModifierBold,
 	}
 	tabpane.InactiveTabStyle = termui.Style{
-		Bg: 1,
-		Fg: 23,
+		Fg: 15,
+		Bg: 0,
 	}
-	termui.Render(tabpane)
+	termui.Render(tabpane, tabWidgets[0])
 
-	currentTab := 2
 	for {
 		select {
 		case ev := <-uiEvents:
@@ -137,31 +143,19 @@ func main() {
 			case "q":
 				log.Println("Quitting")
 				os.Exit(0)
-			case "1", "2":
+			case "1", "2", "3", "4", "5":
 				currentTab, err := strconv.Atoi(ev.ID)
 				if err != nil {
-					log.Warn(err)
+					panic(err)
+
 				}
-				tabpane.ActiveTabIndex = currentTab
-				log.Fatal("rendering tabpane")
-				termui.Render(tabpane)
-				termui.Clear()
-				if currentTab == 2 {
-					for _, v := range gauges {
-						termui.Render(v)
-					}
-				}
-			}
-		case v := <-progressChan:
-			if currentTab == 2 {
-				gauges[v.url] = widgets.NewGauge()
-				gauges[v.url].Title = v.url
-				gauges[v.url].Percent = int(v.v.Percent)
-				gauges[v.url].SetRect(boxes[v.url][0], boxes[v.url][1], boxes[v.url][2], boxes[v.url][3])
-				termui.Render(gauges[v.url])
+				tabpane.ActiveTabIndex = currentTab - 1
+				termui.Render(tabpane, tabWidgets[currentTab-1])
 			}
 		case e := <-errChan:
-			log.Warn(e)
+			if e != nil {
+				log.Warn(err)
+			}
 		}
 	}
 }
