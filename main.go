@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
@@ -44,6 +45,7 @@ func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan e
 				resp, err := f.httpClient.Get(url)
 				if err != nil {
 					e <- fmt.Errorf("http.Get error on %s: %w", url, err)
+					return
 				}
 				progressReader, tmp := progressio.NewProgressReader(resp.Body, resp.ContentLength)
 				defer progressReader.Close()
@@ -71,12 +73,42 @@ func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan e
 	wg.Wait()
 }
 
+type BarMessageHook struct {
+	b *widgets.Paragraph
+}
+
+func (b *BarMessageHook) Levels() []logrus.Level {
+	return []logrus.Level{
+		logrus.ErrorLevel,
+		logrus.WarnLevel,
+		logrus.InfoLevel,
+	}
+}
+
+func (b *BarMessageHook) Fire(l *logrus.Entry) error {
+	var style termui.Style
+	switch l.Level {
+	case logrus.ErrorLevel:
+		style.Fg = 9
+		style.Modifier = termui.ModifierBold
+	case logrus.WarnLevel:
+		style.Fg = 11
+		style.Modifier = termui.ModifierBold
+	case logrus.InfoLevel:
+		style.Fg = 15
+		style.Modifier = termui.ModifierReverse
+	}
+	b.b.TextStyle = style
+	b.b.Text = l.Message
+	termui.Render(b.b)
+	return nil
+}
+
 func main() {
 	defer profile.Start().Stop()
 
 	// Logging
 	log := logrus.New()
-	log.SetLevel(logrus.FatalLevel)
 
 	// Create Feeds
 	var f Feeds
@@ -96,8 +128,12 @@ func main() {
 	for s.Scan() {
 		urls = append(urls, s.Text())
 	}
-	// Start
-	go f.Fetch(urls, progressChan, errChan)
+	// Start fetch
+	var doneFetching bool
+	go func() {
+		f.Fetch(urls, progressChan, errChan)
+		doneFetching = true
+	}()
 	// termui
 	if err := termui.Init(); err != nil {
 		log.Fatal(err)
@@ -109,18 +145,29 @@ func main() {
 
 	// Log messages
 	messages := widgets.NewParagraph()
-	messages.Text = "message"
+	messages.SetRect(0, 0, w, barHeight)
+
+	log.AddHook(&BarMessageHook{
+		b: messages,
+	})
+	log.Out = ioutil.Discard
 
 	tabs := []string{"new", "unread", "old", "queue", "jobs"}
-	tabWidgets := make([]termui.Drawable, 5)
+	tabWidgets := make([][]termui.Drawable, 5)
 
-	tabWidgets[0] = widgets.NewParagraph()
-	tabWidgets[0].(*widgets.Paragraph).Text = "memes"
-	tabWidgets[0].SetRect(0, barHeight, w, h)
+	tabWidgets[0] = []termui.Drawable{widgets.NewParagraph()}
+	tabWidgets[0][0].(*widgets.Paragraph).Text = "memes"
+	tabWidgets[0][0].SetRect(0, barHeight, w, h)
 	tabWidgets[1] = tabWidgets[0]
 	tabWidgets[2] = tabWidgets[0]
 	tabWidgets[3] = tabWidgets[0]
-	tabWidgets[4] = tabWidgets[0]
+
+	// progress
+	tabWidgets[4] = []termui.Drawable{
+		widgets.NewGauge(),
+	}
+	tabWidgets[4][0].(*widgets.Gauge).Label = "fetch feeds"
+	tabWidgets[4][0].(*widgets.Gauge).SetRect(0, barHeight, w, h)
 
 	tabpane := widgets.NewTabPane(tabs...)
 	tabpane.SetRect(0, 0, w, barHeight)
@@ -134,7 +181,10 @@ func main() {
 		Fg: 15,
 		Bg: 0,
 	}
-	termui.Render(tabpane, tabWidgets[0])
+	termui.Render(tabpane, tabWidgets[0][0])
+
+	var totalPercent float64 = float64(100) * float64(len(urls))
+	progressData := make(map[string]float64)
 
 	for {
 		select {
@@ -147,14 +197,28 @@ func main() {
 				currentTab, err := strconv.Atoi(ev.ID)
 				if err != nil {
 					panic(err)
-
 				}
 				tabpane.ActiveTabIndex = currentTab - 1
-				termui.Render(tabpane, tabWidgets[currentTab-1])
+				termui.Render(tabpane)
+				termui.Render(tabWidgets[currentTab-1]...)
 			}
-		case e := <-errChan:
-			if e != nil {
-				log.Warn(err)
+		case p := <-progressChan:
+			if !doneFetching {
+				progressData[p.url] = p.v.Percent
+				var sum float64
+				for _, v := range progressData {
+					sum += v
+				}
+				tabWidgets[4][0].(*widgets.Gauge).Percent = int(100 * sum / totalPercent)
+				if tabpane.ActiveTabIndex == 4 {
+					termui.Render(tabWidgets[4][0])
+				}
+			} else {
+				tabWidgets[4][0].(*widgets.Gauge).Percent = 0
+			}
+		case e, more := <-errChan:
+			if more == true {
+				log.Warn(e)
 			}
 		}
 	}
