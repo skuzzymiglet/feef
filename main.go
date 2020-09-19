@@ -31,6 +31,7 @@ type multiProgress struct {
 	v   progressio.Progress
 }
 
+// Fetch fetches the feeds from the URLs specified, and sends download progress and errors on channels
 func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan error) {
 	var wg sync.WaitGroup
 	defer close(errChan)
@@ -73,10 +74,12 @@ func (f *Feeds) Fetch(urls []string, progress chan multiProgress, errChan chan e
 	wg.Wait()
 }
 
+// BarMessageHook is a Logrus hook for displaying Info/Warn/Error logs in a bar on top
 type BarMessageHook struct {
 	b *widgets.Paragraph
 }
 
+// Levels satisfies logrus.Hook
 func (b *BarMessageHook) Levels() []logrus.Level {
 	return []logrus.Level{
 		logrus.ErrorLevel,
@@ -85,6 +88,7 @@ func (b *BarMessageHook) Levels() []logrus.Level {
 	}
 }
 
+// Fire satisfies logrus.Hook
 func (b *BarMessageHook) Fire(l *logrus.Entry) error {
 	var style termui.Style
 	switch l.Level {
@@ -129,10 +133,10 @@ func main() {
 		urls = append(urls, s.Text())
 	}
 	// Start fetch
-	var doneFetching bool
+	doneFetching := make(chan bool)
 	go func() {
 		f.Fetch(urls, progressChan, errChan)
-		doneFetching = true
+		doneFetching <- true
 	}()
 	// termui
 	if err := termui.Init(); err != nil {
@@ -191,7 +195,6 @@ func main() {
 		case ev := <-uiEvents:
 			switch ev.ID {
 			case "q":
-				log.Println("Quitting")
 				os.Exit(0)
 			case "1", "2", "3", "4", "5":
 				currentTab, err := strconv.Atoi(ev.ID)
@@ -203,19 +206,18 @@ func main() {
 				termui.Render(tabWidgets[currentTab-1]...)
 			}
 		case p := <-progressChan:
-			if !doneFetching {
-				progressData[p.url] = p.v.Percent
-				var sum float64
-				for _, v := range progressData {
-					sum += v
-				}
-				tabWidgets[4][0].(*widgets.Gauge).Percent = int(100 * sum / totalPercent)
-				if tabpane.ActiveTabIndex == 4 {
-					termui.Render(tabWidgets[4][0])
-				}
-			} else {
-				tabWidgets[4][0].(*widgets.Gauge).Percent = 0
+			progressData[p.url] = p.v.Percent
+			var sum float64
+			for _, v := range progressData {
+				sum += v
 			}
+			tabWidgets[4][0].(*widgets.Gauge).Percent = int(100 * sum / totalPercent)
+			if tabpane.ActiveTabIndex == 4 {
+				termui.Render(tabWidgets[4][0])
+			}
+		case <-doneFetching:
+			tabWidgets[4] = []termui.Drawable{}
+			termui.Render(tabWidgets[tabpane.ActiveTabIndex]...)
 		case e, more := <-errChan:
 			if more == true {
 				log.Warn(e)
