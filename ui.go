@@ -8,9 +8,9 @@ import (
 	"github.com/gizak/termui/v3/widgets"
 )
 
-var (
+const (
 	// TopBarHeight is the height of the top bar
-	TopBarHeight int
+	TopBarHeight int = 3
 )
 
 // func MessageBox() *widgets.Paragraph {
@@ -21,8 +21,6 @@ var (
 // 	pretty.Println(w, TopBarHeight)
 // 	return messages
 // }
-
-const barHeight int = 3
 
 type Tabs struct {
 	names      []string
@@ -36,7 +34,7 @@ func InitTabs() Tabs {
 	names := []string{"new", "unread", "old", "queue", "jobs"}
 	w, h := termui.TerminalDimensions()
 	tabpane := widgets.NewTabPane(names...)
-	tabpane.SetRect(0, 0, w, barHeight)
+	tabpane.SetRect(0, 0, w, TopBarHeight)
 	tabpane.Border = true
 	tabpane.ActiveTabStyle = termui.Style{
 		Fg:       15,
@@ -48,7 +46,7 @@ func InitTabs() Tabs {
 		Bg: 0,
 	}
 	emptyParagraph := widgets.NewParagraph()
-	emptyParagraph.SetRect(0, barHeight, w, h)
+	emptyParagraph.SetRect(0, TopBarHeight, w, h)
 	return Tabs{
 		tabpane: tabpane,
 		names:   names,
@@ -66,10 +64,10 @@ func InitTabs() Tabs {
 func (t *Tabs) Refresh() {
 	termui.Clear()
 	w, h := termui.TerminalDimensions()
-	t.tabpane.SetRect(0, 0, w, barHeight)
+	t.tabpane.SetRect(0, 0, w, TopBarHeight)
 	termui.Render(t.tabpane)
 	for _, e := range t.widgets[t.tabpane.ActiveTabIndex] {
-		e.SetRect(0, barHeight, w, h)
+		e.SetRect(0, TopBarHeight, w, h)
 		termui.Render(e)
 	}
 }

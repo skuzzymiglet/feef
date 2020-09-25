@@ -5,7 +5,6 @@ import (
 
 	"github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
-	"github.com/kr/pretty"
 	"github.com/sirupsen/logrus"
 )
 
@@ -52,7 +51,6 @@ func NewLogger() *logrus.Logger {
 
 	messages := widgets.NewParagraph()
 	messages.SetRect(0, 0, w, TopBarHeight)
-	pretty.Println(w, TopBarHeight)
 	log.AddHook(&BarMessageHook{
 		b: messages,
 	})

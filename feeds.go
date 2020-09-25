@@ -24,6 +24,9 @@ type MultiProgress struct {
 // Fetch fetches the feeds from the URLs specified, and sends download progress and errors on channels
 // It is the caller's responsibility to provide unique URLs, to avoid a race condition on maps
 func (f *Feeds) Fetch(urls []string, progress chan MultiProgress, errChan chan error) {
+	if f.Feeds == nil {
+		f.Feeds = make(map[string]gofeed.Feed, 0)
+	}
 	var wg sync.WaitGroup
 	// defer close(errChan)
 	// defer close(progress)
@@ -52,13 +55,11 @@ func (f *Feeds) Fetch(urls []string, progress chan MultiProgress, errChan chan e
 				parser := gofeed.NewParser()
 				feed, err = parser.Parse(progressReader)
 				if err != nil {
-					e <- fmt.Errorf("parse error on %s: %w", url, err)
+					err := fmt.Errorf("parse error on %s: %w", url, err)
+					e <- err
 				}
 			}
 			if feed != nil {
-				if f.Feeds == nil {
-					f.Feeds = make(map[string]gofeed.Feed, 0)
-				}
 				f.Feeds[url] = *feed
 			}
 		}(errChan, v, progress, &wg)
