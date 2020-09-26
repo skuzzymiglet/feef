@@ -1,0 +1,8 @@
+image: alpine/edge
+packages:
+  - go
+sources:
+  - https://git.sr.ht/~skuzzymiglet/feef
+tasks:
+  - build: |
+    go build ./feef/
