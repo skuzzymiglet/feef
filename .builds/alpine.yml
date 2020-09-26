@@ -1,4 +1,6 @@
 image: alpine/edge
+artifacts:
+  - feef/feef
 packages:
   - go
 sources:
