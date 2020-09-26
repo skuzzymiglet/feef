@@ -4,4 +4,6 @@ packages:
 sources:
   - https://git.sr.ht/~skuzzymiglet/feef
 tasks:
-  - build: go build ./feef/
+  - build: |
+    cd feef
+    go build .
