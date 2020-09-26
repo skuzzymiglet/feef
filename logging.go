@@ -24,7 +24,6 @@ func (b *BarMessageHook) Levels() []logrus.Level {
 
 // Fire satisfies logrus.Hook
 func (b *BarMessageHook) Fire(l *logrus.Entry) error {
-	// pretty.Println(b.b.GetRect())
 	var style termui.Style
 	switch l.Level {
 	case logrus.ErrorLevel:
@@ -50,6 +49,7 @@ func NewLogger() *logrus.Logger {
 	w, _ := termui.TerminalDimensions()
 
 	messages := widgets.NewParagraph()
+	// TODO: resize this when window resizes
 	messages.SetRect(0, 0, w, TopBarHeight)
 	log.AddHook(&BarMessageHook{
 		b: messages,

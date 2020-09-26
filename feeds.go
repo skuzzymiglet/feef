@@ -22,20 +22,15 @@ type MultiProgress struct {
 }
 
 // Fetch fetches the feeds from the URLs specified, and sends download progress and errors on channels
-// It is the caller's responsibility to provide unique URLs, to avoid a race condition on maps
 func (f *Feeds) Fetch(urls []string, progress chan MultiProgress, errChan chan error) {
 	if f.Feeds == nil {
 		f.Feeds = make(map[string]gofeed.Feed, 0)
 	}
 	var wg sync.WaitGroup
-	// defer close(errChan)
-	// defer close(progress)
-	// panic(pretty.Sprint(urls))
 	for _, v := range urls {
 		wg.Add(1)
 		go func(e chan error, url string, p chan MultiProgress, wg *sync.WaitGroup) {
 			defer wg.Done()
-			// f.gauges[url] = widgets.NewGauge()
 			var feed *gofeed.Feed
 			if f.httpClient != nil {
 				resp, err := f.httpClient.Get(url)
@@ -48,8 +43,6 @@ func (f *Feeds) Fetch(urls []string, progress chan MultiProgress, errChan chan e
 				go func() {
 					for v := range tmp {
 						p <- MultiProgress{url: url, v: v}
-						// f.gauges[url].Percent = int(v.Percent)
-						// f.gauges[url].Title = url
 					}
 				}()
 				parser := gofeed.NewParser()

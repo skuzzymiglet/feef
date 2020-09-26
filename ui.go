@@ -13,15 +13,6 @@ const (
 	TopBarHeight int = 3
 )
 
-// func MessageBox() *widgets.Paragraph {
-// 	w, _ := termui.TerminalDimensions()
-
-// 	messages := widgets.NewParagraph()
-// 	messages.SetRect(0, 0, w, TopBarHeight)
-// 	pretty.Println(w, TopBarHeight)
-// 	return messages
-// }
-
 type Tabs struct {
 	names      []string
 	widgets    [][]termui.Drawable
@@ -75,15 +66,6 @@ func (t *Tabs) Refresh() {
 func (t *Tabs) Go(tab int) {
 	t.tabpane.ActiveTabIndex = tab
 	t.Render(tab)
-}
-
-func (t *Tabs) GaugeLoop(p chan MultiProgress) error {
-	for _ = range p {
-		if t.tabpane.ActiveTabIndex == t.gaugeIndex {
-			t.Render(t.tabpane.ActiveTabIndex)
-		}
-	}
-	return nil
 }
 
 func (t *Tabs) Render(tab int) {

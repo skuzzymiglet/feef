@@ -5,7 +5,9 @@ go 1.15
 require (
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/bartmeuris/progressio v0.0.0-20200108093145-1c8416d08c4d
+	github.com/fzipp/gocyclo v0.0.0-20150627053110-6acd4345c835 // indirect
 	github.com/gizak/termui/v3 v3.1.0
+	github.com/jondot/goweight v1.0.5 // indirect
 	github.com/kr/pretty v0.2.0
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
