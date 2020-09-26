@@ -6,7 +6,8 @@ sources:
 tasks:
   - build: |
       cd feef
-      go build .
+      go build -v .
+      du -h feef
 image: openbsd/latest
 packages:
   - go
@@ -15,7 +16,8 @@ sources:
 tasks:
   - build: |
       cd feef
-      go build .
+      go build -v .
+      du -h feef
 image: debian/unstable
 arch: arm64
 packages:
@@ -25,4 +27,5 @@ sources:
 tasks:
   - build: |
       cd feef
-       /usr/lib/go-1.15/bin/go build .
+      /usr/lib/go-1.15/bin/go build -v .
+      du -h feef
