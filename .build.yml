@@ -5,5 +5,5 @@ sources:
   - https://git.sr.ht/~skuzzymiglet/feef
 tasks:
   - build: |
-    cd feef
-    go build .
+      cd feef
+      go build .
