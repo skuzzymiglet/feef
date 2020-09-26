@@ -25,4 +25,4 @@ sources:
 tasks:
   - build: |
       cd feef
-      go build .
+       /usr/lib/go-1.15/bin/go build .
