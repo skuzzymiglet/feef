@@ -1,0 +1,11 @@
+image: debian/unstable
+arch: arm64
+packages:
+  - golang-1.15
+sources:
+  - https://git.sr.ht/~skuzzymiglet/feef
+tasks:
+  - build: |
+      cd feef
+      /usr/lib/go-1.15/bin/go build -v .
+      du -h feef

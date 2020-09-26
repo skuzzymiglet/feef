@@ -1,0 +1,10 @@
+image: openbsd/latest
+packages:
+  - go
+sources:
+  - https://git.sr.ht/~skuzzymiglet/feef
+tasks:
+  - build: |
+      cd feef
+      go build -v .
+      du -h feef
