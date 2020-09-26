@@ -7,3 +7,22 @@ tasks:
   - build: |
       cd feef
       go build .
+image: openbsd/latest
+packages:
+  - go
+sources:
+  - https://git.sr.ht/~skuzzymiglet/feef
+tasks:
+  - build: |
+      cd feef
+      go build .
+image: debian/unstable
+arch: arm64
+packages:
+  - go
+sources:
+  - https://git.sr.ht/~skuzzymiglet/feef
+tasks:
+  - build: |
+      cd feef
+      go build .
