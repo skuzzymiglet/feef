@@ -10,7 +10,9 @@ packages:
 sources:
   - https://git.sr.ht/~skuzzymiglet/feef
 tasks:
-  - build: |
+  - test: |
       cd feef
       go test -v -cover -race
+  - builds: |
+      cd feef
       ./gogo-release
