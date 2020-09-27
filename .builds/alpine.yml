@@ -1,12 +1,13 @@
 image: alpine/edge
 artifacts:
-  - feef/feef
+  - feef/dist.zip
 packages:
   - go
+  - zip
 sources:
   - https://git.sr.ht/~skuzzymiglet/feef
 tasks:
   - build: |
       cd feef
-      CGO_ENABLED=0 go build -v .
-      du -h feef
+      ./gogo-release
+      zip -r dist.zip dist
