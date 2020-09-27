@@ -13,10 +13,11 @@ import (
 
 // Feeds holds RSS/Atom feeds
 type Feeds struct {
-	Feeds      map[string]gofeed.Feed
-	Logger     *logrus.Logger
-	updates    chan *gofeed.Feed
-	httpClient *http.Client
+	Feeds           map[string]gofeed.Feed
+	feedsWriteMutex sync.Mutex
+	Logger          *logrus.Logger
+	updates         chan *gofeed.Feed
+	httpClient      *http.Client
 }
 
 type MultiProgress struct {
@@ -68,7 +69,9 @@ func (f *Feeds) Fetch(urls []string, progress chan MultiProgress, errChan chan e
 				}
 			}
 			if feed != nil {
+				f.feedsWriteMutex.Lock()
 				f.Feeds[url] = *feed
+				f.feedsWriteMutex.Unlock()
 			} else {
 				f.Logger.WithFields(logrus.Fields{
 					"url": url,
