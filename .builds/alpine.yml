@@ -1,6 +1,6 @@
 image: alpine/edge
 artifacts:
-  - feef/dist.zip
+  - feef/dist
 packages:
   - go
   - zip
@@ -10,4 +10,3 @@ tasks:
   - build: |
       cd feef
       ./gogo-release
-      zip -r dist.zip dist
