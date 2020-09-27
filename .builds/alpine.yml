@@ -1,6 +1,9 @@
 image: alpine/edge
 artifacts:
-  - feef/dist
+  - feef/dist/feef-linux-amd64
+  - feef/dist/feef-linux-386
+  - feef/dist/feef-linux-arm64
+  - feef/dist/feef-windows-amd64
 packages:
   - go
   - zip
@@ -9,4 +12,5 @@ sources:
 tasks:
   - build: |
       cd feef
+      go test -v -cover -race
       ./gogo-release

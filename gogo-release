@@ -64,9 +64,10 @@ for arch in $matrix; do
         export GOARCH=${GOARCH%% *}
         [ "$env" != "$GOARCH" ] && IFS=" " && for e in $env; do export "$e"; done
 
-        out="$tmp/$name-$tag-$GOOS-$GOARCH"
+        # out="$tmp/$name-$tag-$GOOS-$GOARCH"
+        out="$tmp/$name-$GOOS-$GOARCH"
         [ "$GOOS" = "windows" ] && out="$out.exe"
-        printf '\r%60s\rBuilding %s' ' ' "$out"
+        echo "Building $out"
 
         eval "go build -o $out $build_flags"
         if [ -n "${post_build:-}" ]; then
