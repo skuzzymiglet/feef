@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"sync"
 
@@ -21,6 +22,16 @@ type Feeds struct {
 type MultiProgress struct {
 	url string
 	v   progressio.Progress
+}
+
+func InitFeeds() *Feeds {
+	nilLogger := logrus.New()
+	nilLogger.SetOutput(ioutil.Discard)
+	return &Feeds{
+		Feeds:      make(map[string]gofeed.Feed),
+		Logger:     nilLogger,
+		httpClient: &http.Client{},
+	}
 }
 
 // Fetch fetches the feeds from the URLs specified, and sends download progress and errors on channels
@@ -46,9 +57,10 @@ func (f *Feeds) Fetch(urls []string, progress chan MultiProgress, errChan chan e
 					}
 				}()
 				parser := gofeed.NewParser()
+
 				feed, err = parser.Parse(progressReader)
 				if err != nil {
-					err := fmt.Errorf("parse error on %s: %w", url, err)
+					err = fmt.Errorf("parse error on %s: %w", url, err)
 					e <- err
 					f.Logger.WithFields(logrus.Fields{
 						"url": url,
@@ -56,12 +68,11 @@ func (f *Feeds) Fetch(urls []string, progress chan MultiProgress, errChan chan e
 				}
 			}
 			if feed != nil {
-				// fmt.Println(url)
 				f.Feeds[url] = *feed
 			} else {
 				f.Logger.WithFields(logrus.Fields{
 					"url": url,
-				}).Warn(url, "is nil")
+				}).Warn("feed is nil", feed)
 			}
 		}(errChan, v, progress, &wg)
 	}

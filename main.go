@@ -1,46 +1,40 @@
 package main
 
 import (
-	"net/http"
+	"bufio"
+	"flag"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/gizak/termui/v3"
-	"github.com/mmcdole/gofeed"
 	"github.com/pkg/profile"
 	"github.com/sirupsen/logrus"
 )
 
-var urls = []string{
-	"https://github.com/terminal-discord/weechat-discord/commits/master.atom",
-	"https://github.com/qutebrowser/qutebrowser/releases.atom",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCJZTjBlrnDHYmf0F-eYXA3Q",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCr_Q-bPpcw5fJ-Oow1BW1NQ",
-	"https://blog.golang.org/feed.atom?format=xml",
-	"https://dave.cheney.net/feed/atom",
-	"https://www.arp242.net/feed.xml",
-	"https://buttondown.email/cryptography-dispatches/rss",
-	"https://drewdevault.com/feed.xml",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCVQCQJyZQcIioTDQ4SACvZQ",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UC8EQAfueDGNeqb1ALm0LjHA",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UC8R8FRt1KcPiR-rtAflXmeg",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UC7YOGHUfC1Tb6E4pudI9STA",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCsnGwSIHyoYN0kiINAGUKxg",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCtM5z2gkrGRuWd0JQMx76qA",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCS4FAVeYW_IaZqAbqhlvxlA",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCS0N5baNlQWJCUrhCEo8WlA",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCnkp4xDOwqqJD7sSM3xdUiQ",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCVQCQJyZQcIioTDQ4SACvZQ",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCf7D886oBahxSSwBRVIib0A",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCXkNod_JcH7PleOjwK_8rYQ",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCMk_WSPy3EE16aK5HLzCJzw",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCeh-pJYRZTBJDXMNZeWSUVA",
-	"https://www.youtube.com/feeds/videos.xml?channel_id=UCSl5Uxu2LyaoAoMMGp6oTJA",
-}
-
 func main() {
 	// TODO: parse flags
+	var (
+		urlsFile        string
+		refreshInterval time.Duration
+		logFileName     string
+	)
+
+	flag.StringVar(&urlsFile, "d", "", "file with URLs (one per line)")
+	flag.StringVar(&logFileName, "l", "", "log file")
+	flag.DurationVar(&refreshInterval, "r", time.Second*60, "time between refreshes")
+	flag.Parse()
+
+	urls := make([]string, 0)
+	uf, err := os.Open(urlsFile)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	s := bufio.NewScanner(uf)
+	for s.Scan() {
+		urls = append(urls, s.Text())
+	}
+	uf.Close()
 
 	defer profile.Start().Stop()
 	if err := termui.Init(); err != nil {
@@ -52,17 +46,17 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
+	defer logFile.Close()
 	log := NewLogger(tabs.messageBox, logFile)
 	tabs.Go(0)
 
 	// Create Feeds
-	var f Feeds
-	f.Feeds = make(map[string]gofeed.Feed, len(urls))
+	f := InitFeeds()
 	f.Logger = log
 
 	progressChan := make(chan MultiProgress)
 	errChan := make(chan error)
-	f.httpClient = &http.Client{}
+
 	// Start fetch
 	fetching := make(chan time.Duration)
 	// time.Time = time to fetch
@@ -73,7 +67,7 @@ func main() {
 		fetching <- 0
 		f.Fetch(urls, progressChan, errChan)
 		fetching <- time.Now().Sub(s)
-		for range time.Tick(time.Second * 30) {
+		for range time.Tick(refreshInterval) {
 			s = time.Now()
 			fetching <- 0
 			f.Fetch(urls, progressChan, errChan)

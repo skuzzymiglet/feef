@@ -48,9 +48,11 @@ func NewLogger(messageBox *widgets.Paragraph, output io.Writer) *logrus.Logger {
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
 
-	log.AddHook(&BarMessageHook{
-		b: messageBox,
-	})
+	if messageBox != nil {
+		log.AddHook(&BarMessageHook{
+			b: messageBox,
+		})
+	}
 	log.Out = output
 	return log
 }
