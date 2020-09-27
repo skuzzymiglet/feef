@@ -39,13 +39,19 @@ func TestFetch(t *testing.T) {
 	defer close(progressChan)
 	errChan := make(chan error)
 	defer close(errChan)
-	go f.Fetch(urls, progressChan, errChan)
+	done := make(chan bool)
+	go func() {
+		f.Fetch(urls, progressChan, errChan)
+		done <- true
+	}()
 	for {
 		select {
 		case p := <-progressChan:
 			t.Logf("%s: %0.f%% transferred\n", p.url, p.v.Percent)
 		case e := <-errChan:
 			t.Log(e)
+		case <-done:
+            os.Exit(0)
 		}
 	}
 }
