@@ -8,5 +8,5 @@ sources:
 tasks:
   - build: |
       cd feef
-      go build -v .
+      CGO_ENABLED=0 go build -v .
       du -h feef

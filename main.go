@@ -46,7 +46,6 @@ func main() {
 		logrus.Fatal(err)
 	}
 	defer termui.Close()
-	defer termui.Clear()
 	log := NewLogger()
 	tabs := InitTabs()
 	tabs.Render(0)

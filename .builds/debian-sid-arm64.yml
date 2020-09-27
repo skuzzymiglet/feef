@@ -9,5 +9,5 @@ sources:
 tasks:
   - build: |
       cd feef
-      /usr/lib/go-1.15/bin/go build -v .
+      CGO_ENABLED=0 /usr/lib/go-1.15/bin/go build -v .
       du -h feef
