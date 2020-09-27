@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"io"
 
 	"github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -43,17 +43,14 @@ func (b *BarMessageHook) Fire(l *logrus.Entry) error {
 }
 
 // NewLogger creates a new logger
-func NewLogger() *logrus.Logger {
+func NewLogger(messageBox *widgets.Paragraph, output io.Writer) *logrus.Logger {
 	// Logging
 	log := logrus.New()
-	w, _ := termui.TerminalDimensions()
+	log.SetLevel(logrus.DebugLevel)
 
-	messages := widgets.NewParagraph()
-	// TODO: resize this when window resizes
-	messages.SetRect(0, 0, w, TopBarHeight)
 	log.AddHook(&BarMessageHook{
-		b: messages,
+		b: messageBox,
 	})
-	log.Out = ioutil.Discard
+	log.Out = output
 	return log
 }

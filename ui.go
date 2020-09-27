@@ -38,9 +38,16 @@ func InitTabs() Tabs {
 	}
 	emptyParagraph := widgets.NewParagraph()
 	emptyParagraph.SetRect(0, TopBarHeight, w, h)
+
+	// message box
+	messages := widgets.NewParagraph()
+	// TODO: resize this when window resizes
+	messages.SetRect(0, 0, w, TopBarHeight)
+
 	return Tabs{
-		tabpane: tabpane,
-		names:   names,
+		messageBox: messages,
+		tabpane:    tabpane,
+		names:      names,
 		widgets: [][]termui.Drawable{
 			[]termui.Drawable{emptyParagraph},
 			[]termui.Drawable{emptyParagraph},
@@ -53,7 +60,6 @@ func InitTabs() Tabs {
 }
 
 func (t *Tabs) Refresh() {
-	termui.Clear()
 	w, h := termui.TerminalDimensions()
 	t.tabpane.SetRect(0, 0, w, TopBarHeight)
 	termui.Render(t.tabpane)
@@ -65,10 +71,6 @@ func (t *Tabs) Refresh() {
 
 func (t *Tabs) Go(tab int) {
 	t.tabpane.ActiveTabIndex = tab
-	t.Render(tab)
-}
-
-func (t *Tabs) Render(tab int) {
 	t.tabpane.ActiveTabIndex = tab
 	if tab != t.gaugeIndex {
 		t.widgets[tab][0].(*widgets.Paragraph).Text = fmt.Sprintf("It is: %s", time.Now())

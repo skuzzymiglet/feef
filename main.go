@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gizak/termui/v3"
+	"github.com/mmcdole/gofeed"
 	"github.com/pkg/profile"
 	"github.com/sirupsen/logrus"
 )
@@ -46,12 +47,19 @@ func main() {
 		logrus.Fatal(err)
 	}
 	defer termui.Close()
-	log := NewLogger()
 	tabs := InitTabs()
-	tabs.Render(0)
+	logFile, err := os.Create("feef.log")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	log := NewLogger(tabs.messageBox, logFile)
+	tabs.Go(0)
 
 	// Create Feeds
 	var f Feeds
+	f.Feeds = make(map[string]gofeed.Feed, len(urls))
+	f.Logger = log
+
 	progressChan := make(chan MultiProgress)
 	errChan := make(chan error)
 	f.httpClient = &http.Client{}
@@ -65,7 +73,7 @@ func main() {
 		fetching <- 0
 		f.Fetch(urls, progressChan, errChan)
 		fetching <- time.Now().Sub(s)
-		for range time.Tick(time.Second * 5) {
+		for range time.Tick(time.Second * 30) {
 			s = time.Now()
 			fetching <- 0
 			f.Fetch(urls, progressChan, errChan)
@@ -100,6 +108,11 @@ func main() {
 			if e != nil {
 				log.Warn(e)
 			}
+		case p := <-progressChan:
+			log.WithFields(logrus.Fields{
+				"url":     p.url,
+				"percent": p.v.Percent,
+			}).Debug()
 		case t := <-fetching:
 			if t == 0 {
 				log.Println("fetching", len(urls), "feeds...")
