@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-	// TODO: parse flags
 	var (
 		urlsFile        string
 		refreshInterval time.Duration
@@ -37,10 +36,12 @@ func main() {
 	uf.Close()
 
 	defer profile.Start().Stop()
+
 	if err := termui.Init(); err != nil {
 		logrus.Fatal(err)
 	}
 	defer termui.Close()
+
 	tabs := InitTabs()
 	logFile, err := os.Create("feef.log")
 	if err != nil {
@@ -61,7 +62,7 @@ func main() {
 	fetching := make(chan time.Duration)
 	// time.Time = time to fetch
 	// 0 = just started
-	// TODO: more elegant solution, I guess
+	// TODO: make Fetch() itself return a FetchStatus struct
 	go func() {
 		s := time.Now()
 		fetching <- 0
@@ -83,8 +84,7 @@ func main() {
 			case termui.KeyboardEvent:
 				switch ev.ID {
 				case "q":
-					os.Exit(0)
-					// TODO: show cursor again when exiting
+					goto end
 				case "1", "2", "3", "4", "5":
 					currentTab, err := strconv.Atoi(ev.ID)
 					if err != nil {
@@ -115,4 +115,5 @@ func main() {
 			}
 		}
 	}
+end:
 }

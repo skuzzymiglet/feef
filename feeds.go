@@ -75,7 +75,7 @@ func (f *Feeds) Fetch(urls []string, progress chan MultiProgress, errChan chan e
 			} else {
 				f.Logger.WithFields(logrus.Fields{
 					"url": url,
-				}).Warn("feed is nil", feed)
+				}).Warn("feed is nil")
 			}
 		}(errChan, v, progress, &wg)
 	}
