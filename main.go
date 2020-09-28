@@ -84,7 +84,7 @@ func main() {
 			case termui.KeyboardEvent:
 				switch ev.ID {
 				case "q":
-					goto end
+					return
 				case "1", "2", "3", "4", "5":
 					currentTab, err := strconv.Atoi(ev.ID)
 					if err != nil {
@@ -115,5 +115,4 @@ func main() {
 			}
 		}
 	}
-end:
 }
