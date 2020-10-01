@@ -13,6 +13,9 @@ import (
 
 // Feeds holds RSS/Atom feeds
 type Feeds struct {
+	// TODO: Use a better feed abstraction
+	// less bloat
+	// items have reference to feed
 	Feeds           map[string]gofeed.Feed
 	feedsWriteMutex sync.Mutex
 	Logger          *logrus.Logger
@@ -38,6 +41,8 @@ func InitFeeds() *Feeds {
 // Fetch fetches the feeds from the URLs specified, and sends download progress and errors on channels
 func (f *Feeds) Fetch(urls []string, progress chan MultiProgress, errChan chan error) {
 	var wg sync.WaitGroup
+	// TODO: perhaps split the method into multiple synchronous ones
+	// TODO: pseudo-feeds (e.g. YouTube)
 	for _, v := range urls {
 		wg.Add(1)
 		go func(e chan error, url string, p chan MultiProgress, wg *sync.WaitGroup) {

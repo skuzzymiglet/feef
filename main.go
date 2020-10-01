@@ -93,9 +93,11 @@ func main() {
 					tabs.Go(currentTab - 1)
 				}
 			case termui.ResizeEvent:
-				// TODO: resize hook
+				// TODO: Have a function to redraw multiple Drawables
 				// Have a list of Drawables
 				// Call SetRect and render on each
+				// TODO: Use another TUI library which handles resizes
+				// maybe fork termui
 				tabs.Refresh()
 			}
 		case e := <-errChan:
