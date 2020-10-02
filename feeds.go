@@ -2,11 +2,8 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"sync"
 
-	"github.com/bartmeuris/progressio"
 	"github.com/mmcdole/gofeed"
 	"github.com/sirupsen/logrus"
 )
@@ -16,73 +13,22 @@ type Feeds struct {
 	// TODO: Use a better feed abstraction
 	// less bloat
 	// items have reference to feed
-	Feeds           map[string]gofeed.Feed
-	feedsWriteMutex sync.Mutex
-	Logger          *logrus.Logger
-	updates         chan *gofeed.Feed
-	httpClient      *http.Client
+	Feeds  map[string]gofeed.Feed
+	Logger *logrus.Logger
 }
 
-type MultiProgress struct {
-	url string
-	v   progressio.Progress
-}
-
-func InitFeeds() *Feeds {
-	nilLogger := logrus.New()
-	nilLogger.SetOutput(ioutil.Discard)
-	return &Feeds{
-		Feeds:      make(map[string]gofeed.Feed),
-		Logger:     nilLogger,
-		httpClient: &http.Client{},
+// Fetch fetches the feeds from the URL specified
+func Fetch(url string, httpClient *http.Client) (*gofeed.Feed, error) {
+	var feed *gofeed.Feed
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("http.Get error on %s: %w", url, err)
 	}
-}
+	parser := gofeed.NewParser()
 
-// Fetch fetches the feeds from the URLs specified, and sends download progress and errors on channels
-func (f *Feeds) Fetch(urls []string, progress chan MultiProgress, errChan chan error) {
-	var wg sync.WaitGroup
-	// TODO: perhaps split the method into multiple synchronous ones
-	// TODO: pseudo-feeds (e.g. YouTube)
-	for _, v := range urls {
-		wg.Add(1)
-		go func(e chan error, url string, p chan MultiProgress, wg *sync.WaitGroup) {
-			defer wg.Done()
-
-			var feed *gofeed.Feed
-			if f.httpClient != nil {
-				resp, err := f.httpClient.Get(url)
-				if err != nil {
-					e <- fmt.Errorf("http.Get error on %s: %w", url, err)
-					return
-				}
-				progressReader, tmp := progressio.NewProgressReader(resp.Body, resp.ContentLength)
-				defer progressReader.Close()
-				go func() {
-					for v := range tmp {
-						p <- MultiProgress{url: url, v: v}
-					}
-				}()
-				parser := gofeed.NewParser()
-
-				feed, err = parser.Parse(progressReader)
-				if err != nil {
-					err = fmt.Errorf("parse error on %s: %w", url, err)
-					e <- err
-					f.Logger.WithFields(logrus.Fields{
-						"url": url,
-					}).Error(err)
-				}
-			}
-			if feed != nil {
-				f.feedsWriteMutex.Lock()
-				f.Feeds[url] = *feed
-				f.feedsWriteMutex.Unlock()
-			} else {
-				f.Logger.WithFields(logrus.Fields{
-					"url": url,
-				}).Warn("feed is nil")
-			}
-		}(errChan, v, progress, &wg)
+	feed, err = parser.Parse(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("parse error on %s: %w", url, err)
 	}
-	wg.Wait()
+	return feed, nil
 }

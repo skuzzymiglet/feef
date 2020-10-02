@@ -1,8 +1,10 @@
 package main
 
 import (
-	"os"
+	"net/http"
+	"sync"
 	"testing"
+	"time"
 )
 
 var urls []string = []string{
@@ -33,25 +35,19 @@ var urls []string = []string{
 }
 
 func TestFetch(t *testing.T) {
-	f := InitFeeds()
-	f.Logger = NewLogger(nil, os.Stdout)
-	progressChan := make(chan MultiProgress)
-	defer close(progressChan)
-	errChan := make(chan error)
-	defer close(errChan)
-	done := make(chan bool)
-	go func() {
-		f.Fetch(urls, progressChan, errChan)
-		done <- true
-	}()
-	for {
-		select {
-		case p := <-progressChan:
-			t.Logf("%s: %0.f%% transferred\n", p.url, p.v.Percent)
-		case e := <-errChan:
-			t.Log(e)
-		case <-done:
-            os.Exit(0)
-		}
+	client := &http.Client{}
+	var wg sync.WaitGroup
+	for i, u := range urls {
+		wg.Add(1)
+		go func(i int, u string, wg *sync.WaitGroup) {
+			defer wg.Done()
+			s := time.Now()
+			_, err := Fetch(u, client)
+			t.Logf("fetched feed %d in %s (%s)", i, time.Now().Sub(s), u)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}(i, u, &wg)
 	}
+	wg.Wait()
 }

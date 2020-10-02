@@ -3,8 +3,10 @@ package main
 import (
 	"bufio"
 	"flag"
+	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gizak/termui/v3"
@@ -51,31 +53,26 @@ func main() {
 	log := NewLogger(tabs.messageBox, logFile)
 	tabs.Go(0)
 
-	// Create Feeds
-	f := InitFeeds()
-	f.Logger = log
+	uiEvents := termui.PollEvents()
 
-	progressChan := make(chan MultiProgress)
-	errChan := make(chan error)
+	// Fetch!
 
-	// Start fetch
-	fetching := make(chan time.Duration)
-	// time.Time = time to fetch
-	// 0 = just started
-	// TODO: make Fetch() itself return a FetchStatus struct
+	errChan := make(chan error, 0)
+	client := &http.Client{}
+	var wg sync.WaitGroup
+
 	go func() {
-		s := time.Now()
-		fetching <- 0
-		f.Fetch(urls, progressChan, errChan)
-		fetching <- time.Now().Sub(s)
-		for range time.Tick(refreshInterval) {
-			s = time.Now()
-			fetching <- 0
-			f.Fetch(urls, progressChan, errChan)
-			fetching <- time.Now().Sub(s)
+		for i, u := range urls {
+			wg.Add(1)
+			go func(i int, u string, wg *sync.WaitGroup) {
+				defer wg.Done()
+				_, err := Fetch(u, client)
+				if err != nil {
+					errChan <- err
+				}
+			}(i, u, &wg)
 		}
 	}()
-	uiEvents := termui.PollEvents()
 
 	for {
 		select {
@@ -103,17 +100,6 @@ func main() {
 		case e := <-errChan:
 			if e != nil {
 				log.Warn(e)
-			}
-		case p := <-progressChan:
-			log.WithFields(logrus.Fields{
-				"url":     p.url,
-				"percent": p.v.Percent,
-			}).Debug()
-		case t := <-fetching:
-			if t == 0 {
-				log.Println("fetching", len(urls), "feeds...")
-			} else {
-				log.Println("fetched", len(urls), "feeds in", t)
 			}
 		}
 	}
