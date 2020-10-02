@@ -59,21 +59,40 @@ func main() {
 
 	errChan := make(chan error, 0)
 	client := &http.Client{}
-	var wg sync.WaitGroup
 
+	fetchStatus := make(chan time.Duration)
 	go func() {
-		for i, u := range urls {
+		s := time.Now()
+		wg := sync.WaitGroup{}
+		for _, u := range urls {
 			wg.Add(1)
-			go func(i int, u string, wg *sync.WaitGroup) {
+			go func(u string, wg *sync.WaitGroup) {
 				defer wg.Done()
 				_, err := Fetch(u, client)
 				if err != nil {
 					errChan <- err
 				}
-			}(i, u, &wg)
+			}(u, &wg)
+		}
+		wg.Wait()
+		fetchStatus <- time.Now().Sub(s)
+		for range time.Tick(refreshInterval) {
+			s := time.Now()
+			wg := sync.WaitGroup{}
+			for _, u := range urls {
+				wg.Add(1)
+				go func(u string, wg *sync.WaitGroup) {
+					defer wg.Done()
+					_, err := Fetch(u, client)
+					if err != nil {
+						errChan <- err
+					}
+				}(u, &wg)
+			}
+			wg.Wait()
+			fetchStatus <- time.Now().Sub(s)
 		}
 	}()
-
 	for {
 		select {
 		case ev := <-uiEvents:
@@ -99,8 +118,11 @@ func main() {
 			}
 		case e := <-errChan:
 			if e != nil {
+				// TODO: sometimes only shows "parse error" and not url
 				log.Warn(e)
 			}
+		case d := <-fetchStatus:
+			log.Printf("fetched %d feeds in %s", len(urls), d)
 		}
 	}
 }
