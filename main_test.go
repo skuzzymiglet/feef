@@ -45,7 +45,7 @@ func TestFetch(t *testing.T) {
 			_, err := Fetch(u, client)
 			t.Logf("fetched feed %d in %s (%s)", i, time.Now().Sub(s), u)
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 		}(i, u, &wg)
 	}
