@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"flag"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
@@ -10,11 +12,11 @@ import (
 	"time"
 
 	"github.com/gizak/termui/v3"
-	"github.com/pkg/profile"
-	"github.com/sirupsen/logrus"
-)
+	"github.com/pkg/profile")
 
 func main() {
+	log := NewLogger(os.Stdout)
+
 	var (
 		urlsFile        string
 		refreshInterval time.Duration
@@ -26,10 +28,15 @@ func main() {
 	flag.DurationVar(&refreshInterval, "r", time.Second*60, "time between refreshes")
 	flag.Parse()
 
+	// TODO: nicer-looking log from the start
 	urls := make([]string, 0)
+	if urlsFile == "" {
+		flag.Usage()
+		os.Exit(2)
+	}
 	uf, err := os.Open(urlsFile)
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 	s := bufio.NewScanner(uf)
 	for s.Scan() {
@@ -40,17 +47,26 @@ func main() {
 	defer profile.Start().Stop()
 
 	if err := termui.Init(); err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 	defer termui.Close()
 
 	tabs := InitTabs()
-	logFile, err := os.Create("feef.log")
-	if err != nil {
-		logrus.Fatal(err)
+	var logFile io.Writer
+	if logFileName != "" {
+		logFile, err = os.Create(logFileName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer logFile.(*os.File).Close()
+	} else {
+		logFile = ioutil.Discard
 	}
-	defer logFile.Close()
-	log := NewLogger(tabs.messageBox, logFile)
+// panic(logFile)
+
+	log.AddHook(&BarMessageHook{
+			b: tabs.messageBox,
+		})
 	tabs.Go(0)
 
 	uiEvents := termui.PollEvents()
@@ -78,7 +94,7 @@ func main() {
 		fetchStatus <- time.Now().Sub(s)
 		for range time.Tick(refreshInterval) {
 			s := time.Now()
-			wg := sync.WaitGroup{}
+			var wg sync.WaitGroup
 			for _, u := range urls {
 				wg.Add(1)
 				go func(u string, wg *sync.WaitGroup) {

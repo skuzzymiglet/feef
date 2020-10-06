@@ -8,12 +8,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// BarMessageHook is a Logrus hook for displaying Info/Warn/Error logs in a bar on top
+// BarMessageHook is a logrus hook for displaying Info/Warn/Error logs in a bar on top
 type BarMessageHook struct {
 	b *widgets.Paragraph
 }
 
-// Levels satisfies logrus.Hook
+// Levels implements logrus.Hook
 func (b *BarMessageHook) Levels() []logrus.Level {
 	return []logrus.Level{
 		logrus.ErrorLevel,
@@ -22,7 +22,7 @@ func (b *BarMessageHook) Levels() []logrus.Level {
 	}
 }
 
-// Fire satisfies logrus.Hook
+// Fire implements logrus.Hook
 func (b *BarMessageHook) Fire(l *logrus.Entry) error {
 	var style termui.Style
 	switch l.Level {
@@ -43,16 +43,10 @@ func (b *BarMessageHook) Fire(l *logrus.Entry) error {
 }
 
 // NewLogger creates a new logger
-func NewLogger(messageBox *widgets.Paragraph, output io.Writer) *logrus.Logger {
+func NewLogger(output io.Writer) *logrus.Logger {
 	// Logging
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
-
-	if messageBox != nil {
-		log.AddHook(&BarMessageHook{
-			b: messageBox,
-		})
-	}
 	log.Out = output
 	return log
 }
