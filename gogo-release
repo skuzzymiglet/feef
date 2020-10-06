@@ -69,10 +69,10 @@ for arch in $matrix; do
         [ "$GOOS" = "windows" ] && out="$out.exe"
         echo "=== BUILDING $out ==="
 
-        time eval "go build -o $out $build_flags"
+        eval "time go build -o $out $build_flags"
         if [ -n "${post_build:-}" ]; then
             printf '\r%60s\rCompressing %s' ' ' "$out"
-            time eval $post_build "$out" || :
+            eval time $post_build "$out" || :
         fi
     )
 done
