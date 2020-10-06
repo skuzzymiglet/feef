@@ -12,7 +12,8 @@ import (
 	"time"
 
 	"github.com/gizak/termui/v3"
-	"github.com/pkg/profile")
+	"github.com/pkg/profile"
+)
 
 func main() {
 	log := NewLogger(os.Stdout)
@@ -62,11 +63,11 @@ func main() {
 	} else {
 		logFile = ioutil.Discard
 	}
-// panic(logFile)
+	log.SetOutput(logFile)
 
 	log.AddHook(&BarMessageHook{
-			b: tabs.messageBox,
-		})
+		b: tabs.messageBox,
+	})
 	tabs.Go(0)
 
 	uiEvents := termui.PollEvents()
