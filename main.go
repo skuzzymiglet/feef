@@ -29,7 +29,6 @@ func main() {
 	flag.DurationVar(&refreshInterval, "r", time.Second*60, "time between refreshes")
 	flag.Parse()
 
-	// TODO: nicer-looking log from the start
 	urls := make([]string, 0)
 	if urlsFile == "" {
 		flag.Usage()
