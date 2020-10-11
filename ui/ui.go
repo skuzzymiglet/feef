@@ -2,7 +2,6 @@ package ui
 
 import (
 	"strconv"
-	"time"
 
 	"github.com/gdamore/tcell"
 	"github.com/gdamore/tcell/encoding"
@@ -44,11 +43,11 @@ func RunUI(u UI) error {
 	go func() {
 		for {
 			e := s.PollEvent()
-			age := time.Now().Sub(e.When())
-			// exec.Command("notify-send", age.String()).Run()
-			if !(age >= time.Millisecond*10) {
-				evChan <- e
-			}
+			// age := time.Now().Sub(e.When())
+			// // exec.Command("notify-send", age.String()).Run()
+			// if !(age >= time.Millisecond*10) {
+			evChan <- e
+			// }
 		}
 	}()
 
@@ -90,18 +89,46 @@ func (f *FeefUI) Init() error {
 	return nil
 }
 
+const (
+	topleft     = '┌'
+	topright    = '┐'
+	bottomleft  = '└'
+	bottomright = '┘'
+
+	verticalline   = '│'
+	horizontalline = '─'
+)
+
+type box struct {
+	x1, y1, x2, y2 int
+	title, content string
+	borderStyle    tcell.Style
+}
+
+func drawBox(b box, s tcell.Screen) {
+	s.SetContent(b.x1, b.y1, topleft, []rune{}, b.borderStyle)
+	s.SetContent(b.x1, b.y2, bottomleft, []rune{}, b.borderStyle)
+	s.SetContent(b.x2, b.y1, topright, []rune{}, b.borderStyle)
+	s.SetContent(b.x2, b.y2, bottomright, []rune{}, b.borderStyle)
+	for x := b.x1 + 1; x < b.x2; x++ {
+		s.SetContent(x, b.y1, horizontalline, []rune{}, b.borderStyle)
+		s.SetContent(x, b.y2, horizontalline, []rune{}, b.borderStyle)
+	}
+	for y := b.y1 + 1; y < b.y2; y++ {
+		s.SetContent(b.x1, y, verticalline, []rune{}, b.borderStyle)
+		s.SetContent(b.x2, y, verticalline, []rune{}, b.borderStyle)
+	}
+	// for x := b.x1 + 1; x < b.x2; x++ {
+	// 	s.SetContent(x, b.y1, horizontalline, []rune{}, b.borderStyle)
+	// }
+	// for x := b.x1 + 1; x < b.x2; x++ {
+	// 	s.SetContent(x, b.y1, horizontalline, []rune{}, b.borderStyle)
+	// }
+}
+
 // Draw is
 func (f *FeefUI) Draw(w, h int, s tcell.Screen) {
-	// Colors
-	for x := 0; x < w-1; x++ {
-		for y := 1; y < h-1; y++ {
-			if y == 1 {
-				s.SetContent(x, y, '-', []rune{}, tcell.StyleDefault)
-			} else {
-				s.SetContent(x, y, rune(x+y), []rune{}, tcell.StyleDefault)
-			}
-		}
-	}
+	drawBox(box{x1: 2, y1: 2, x2: 13, y2: 10, title: "hi", content: "hi-ass", borderStyle: tcell.StyleDefault}, s)
 	// Tabline
 	var x int
 	for ti, t := range f.tabs {
