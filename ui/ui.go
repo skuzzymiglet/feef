@@ -1,10 +1,14 @@
 package ui
 
 import (
+	"image"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gdamore/tcell"
 	"github.com/gdamore/tcell/encoding"
+	"github.com/mitchellh/go-wordwrap"
 )
 
 const (
@@ -100,35 +104,67 @@ const (
 )
 
 type box struct {
-	x1, y1, x2, y2 int
-	title, content string
-	borderStyle    tcell.Style
+	image.Rectangle
+	title, content         string
+	borderStyle, textStyle tcell.Style
 }
 
 func drawBox(b box, s tcell.Screen) {
-	s.SetContent(b.x1, b.y1, topleft, []rune{}, b.borderStyle)
-	s.SetContent(b.x1, b.y2, bottomleft, []rune{}, b.borderStyle)
-	s.SetContent(b.x2, b.y1, topright, []rune{}, b.borderStyle)
-	s.SetContent(b.x2, b.y2, bottomright, []rune{}, b.borderStyle)
-	for x := b.x1 + 1; x < b.x2; x++ {
-		s.SetContent(x, b.y1, horizontalline, []rune{}, b.borderStyle)
-		s.SetContent(x, b.y2, horizontalline, []rune{}, b.borderStyle)
+	x1 := b.Min.X
+	x2 := b.Max.X
+	y1 := b.Min.Y
+	y2 := b.Max.Y
+	s.SetContent(x1, y1, topleft, []rune{}, b.borderStyle)
+	s.SetContent(x1, y2, bottomleft, []rune{}, b.borderStyle)
+	s.SetContent(x2, y1, topright, []rune{}, b.borderStyle)
+	s.SetContent(x2, y2, bottomright, []rune{}, b.borderStyle)
+	for x := x1 + 1; x < x2; x++ {
+		s.SetContent(x, y1, horizontalline, []rune{}, b.borderStyle)
+		s.SetContent(x, y2, horizontalline, []rune{}, b.borderStyle)
 	}
-	for y := b.y1 + 1; y < b.y2; y++ {
-		s.SetContent(b.x1, y, verticalline, []rune{}, b.borderStyle)
-		s.SetContent(b.x2, y, verticalline, []rune{}, b.borderStyle)
+	for y := y1 + 1; y < y2; y++ {
+		s.SetContent(x1, y, verticalline, []rune{}, b.borderStyle)
+		s.SetContent(x2, y, verticalline, []rune{}, b.borderStyle)
 	}
-	// for x := b.x1 + 1; x < b.x2; x++ {
-	// 	s.SetContent(x, b.y1, horizontalline, []rune{}, b.borderStyle)
-	// }
-	// for x := b.x1 + 1; x < b.x2; x++ {
-	// 	s.SetContent(x, b.y1, horizontalline, []rune{}, b.borderStyle)
-	// }
+	pos := x1 + 1
+	maxlength := x2 - x1 - 1
+
+	var trimmed string
+	if len(b.title) > maxlength {
+		trimmed = b.title[:maxlength]
+	} else {
+		trimmed = b.title
+	}
+	cursor := x1 + 1
+	for n, line := range strings.Split(wordwrap.WrapString(b.content, uint(x2-x1-2)), "\n") {
+		for _, char := range line {
+			if n < y2-y1-2 {
+				s.SetContent(cursor, y1+1+n, char, []rune{}, b.textStyle)
+			}
+			cursor++
+		}
+		cursor = x1 + 1
+	}
+	for _, c := range trimmed {
+		s.SetContent(pos, y1, c, []rune{}, b.borderStyle)
+		pos++
+	}
 }
 
 // Draw is
 func (f *FeefUI) Draw(w, h int, s tcell.Screen) {
-	drawBox(box{x1: 2, y1: 2, x2: 13, y2: 10, title: "hi", content: "hi-ass", borderStyle: tcell.StyleDefault}, s)
+	drawBox(box{
+		Rectangle:   image.Rect(5, 6, 20, 15),
+		title:       "arp242.net: This article",
+		content:     "Through the technical life, to explore the ultimate value.",
+		borderStyle: tcell.StyleDefault},
+		s)
+	drawBox(box{
+		Rectangle:   image.Rect(10, 10, 50, 44),
+		title:       "kar.wtf: Hi",
+		content:     "this is a post",
+		borderStyle: tcell.StyleDefault},
+		s)
 	// Tabline
 	var x int
 	for ti, t := range f.tabs {
@@ -151,7 +187,7 @@ func (f *FeefUI) HandleEvents(events []tcell.Event, s tcell.Screen) (flush bool)
 			// 	panic("aeu")
 			// }
 			// f.doneChan <- true
-			panic(nil)
+			os.Exit(0)
 		case 'r':
 			s.Clear()
 			s.Sync()
