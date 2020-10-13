@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"fmt"
 	"image"
 	"os"
 	"strconv"
 	"strings"
 
+	"git.sr.ht/~skuzzymiglet/feef/ui/tilefuncs"
 	"github.com/gdamore/tcell"
 	"github.com/gdamore/tcell/encoding"
 	"github.com/mitchellh/go-wordwrap"
@@ -110,10 +112,13 @@ type box struct {
 }
 
 func drawBox(b box, s tcell.Screen) {
+	// if w, h := s.Size(); w < 2 || h < 2 { // Don't do anything if screen can't fit a box
+	// 	return
+	// }
 	x1 := b.Min.X
-	x2 := b.Max.X
+	x2 := b.Max.X - 1
 	y1 := b.Min.Y
-	y2 := b.Max.Y
+	y2 := b.Max.Y - 1
 	s.SetContent(x1, y1, topleft, []rune{}, b.borderStyle)
 	s.SetContent(x1, y2, bottomleft, []rune{}, b.borderStyle)
 	s.SetContent(x2, y1, topright, []rune{}, b.borderStyle)
@@ -128,6 +133,9 @@ func drawBox(b box, s tcell.Screen) {
 	}
 	pos := x1 + 1
 	maxlength := x2 - x1 - 1
+	if maxlength < 0 {
+		maxlength = 0
+	}
 
 	var trimmed string
 	if len(b.title) > maxlength {
@@ -153,18 +161,17 @@ func drawBox(b box, s tcell.Screen) {
 
 // Draw is
 func (f *FeefUI) Draw(w, h int, s tcell.Screen) {
-	drawBox(box{
-		Rectangle:   image.Rect(5, 6, 20, 15),
-		title:       "arp242.net: This article",
-		content:     "Through the technical life, to explore the ultimate value.",
-		borderStyle: tcell.StyleDefault},
-		s)
-	drawBox(box{
-		Rectangle:   image.Rect(10, 10, 50, 44),
-		title:       "kar.wtf: Hi",
-		content:     "this is a post",
-		borderStyle: tcell.StyleDefault},
-		s)
+	s.Clear()
+	// Demo boxes
+	for _, win := range tilefuncs.Vertical(7, image.Rect(1, 1, w, h)) {
+		drawBox(box{
+			Rectangle:   win,
+			title:       "i love tcell!",
+			content:     fmt.Sprintf("%dx%d", win.Dx(), win.Dy()),
+			borderStyle: tcell.StyleDefault,
+		},
+			s)
+	}
 	// Tabline
 	var x int
 	for ti, t := range f.tabs {
