@@ -13,7 +13,6 @@ import (
 	"git.sr.ht/~skuzzymiglet/feef/ui"
 
 	"github.com/gizak/termui/v3"
-	"github.com/kr/pretty"
 	"github.com/pkg/profile"
 	"github.com/sirupsen/logrus"
 )
@@ -72,7 +71,6 @@ func main() {
 	errChan := make(chan error, 0)
 
 	f := feeds.InitFeeds()
-	pretty.Println(f)
 
 	go func() {
 		wg := sync.WaitGroup{}
