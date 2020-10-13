@@ -1,38 +1,20 @@
 # tabs
 
-## new
+# new 
 
-+ central pane
-+ others tiled behind
-+ tab to switch
+- panes contain 1 item.
+- Most recent unread item that's newer than 3 days (configurable)
 
-## old
+# unread
 
-tree?
+- like new but all unread items
 
-feed>item
+# search 
 
-right pane: view of item/feed
-
-## queue
-
-+ one pane per feed (with title in top)
-+ panes contain: 
-    + shortest date possible
-    + title
-    + author (if there are multiple different authors)
-
-## jobs
-
-list of commands:
-
-+ errored: red (show status code)
-+ exited: gray (exit code 0)
-+ running: green
-
-j/k to move up/down
-
-right pane: output (if there's too much, the bottom is shown)
+- searchbox (for all feeds)
++ input box on top (100% width)
++ left box: metadata
++ right box: content
 
 # keys
 
@@ -49,18 +31,35 @@ right pane: output (if there's too much, the bottom is shown)
 + `q` - exit
 + `r` - reload all feeds
 + `C-r` - redraw screen
++ tab - next item
++ enter - next feed
 
-users are not expected to read items in the application (there will be no super cool reading program like newsboat, an external program should be used). they will be presented 
+**users are not expected to read items in the application (there will be no super cool reading program like newsboat, an external program should be used). they will be presented**
 
-# how to store read items
+# storage
 
-plaintext file (that is easy to awk)
+## read/unread
 
-_hash_:_date_:_feed url_:_title_:_url_:_podcast download url_
+### plaintext file
 
-(delimiter should be very obscure, but consistent (for awking))
++ easy to awk
++ _hash_:_date_:_feed url_:_title_:_url_:_podcast download url_
++ delimiter should be very obscure, but consistent (for awking)
 
-sqlite (yuck, but maybe)
+### sqlite
+
++ relational
++ difficult to write, ehh for scripts
+
+### kv db
+
++ simple data model
++ `feed url:guid/ item url`: `bool` (0 or 1, nice and simple)
+
+## cache
+
++ not necessary really, except for offline reading
++ load at start, write at end, so simple dump may work
 
 # subcommands
 
