@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// NOTE: Main doesn't do much rn, because UI is not fully developed
 func main() {
 	log := logrus.New()
 
@@ -75,6 +76,8 @@ func main() {
 
 	go func() {
 		wg := sync.WaitGroup{}
+		// NOTE: This is basically a bad do-while
+		// TODO: refactor to reduce code duplication
 		for _, u := range urls {
 			wg.Add(1)
 			go func(u string, wg *sync.WaitGroup) {

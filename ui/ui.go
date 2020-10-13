@@ -13,21 +13,24 @@ import (
 	"github.com/mitchellh/go-wordwrap"
 )
 
+// TODO: split this into its own library
 const (
 	// TopBarHeight is the height of the top bar
-	TopBarHeight int = 3
+	TopBarHeight int = 3 //TODO: actually use this in the code
 )
 
 // UI is a generic interface for a TUI
+// UI is immediate-mode/stateless - it's drawn on demand. This ensures pretty clean code
 type UI interface {
 	Init() error                                           // Initialize (non-tcell) resources
-	Draw(int, int, tcell.Screen)                           // Draw UI, given width and height
+	Draw(int, int, tcell.Screen)                           // Draw UI, given width and height (to save on scree.Size() calls)
 	HandleEvents([]tcell.Event, tcell.Screen) (flush bool) // Return true to flush event buffer, false to accumulate and pass on next event
 	Wait() <-chan bool                                     // Used to quit
 }
 
 // RunUI is a generic runner for a UI
 func RunUI(u UI) error {
+	// TODO: add a channel that forces a redraw when an event is sent (e.g. feed updates)
 	u.Init()
 	encoding.Register()
 	s, err := tcell.NewScreen()
@@ -57,7 +60,7 @@ func RunUI(u UI) error {
 		}
 	}()
 
-	for {
+	for { // TODO: not have an infinite loop before return
 		select {
 		case <-u.Wait():
 			panic("don")
@@ -82,6 +85,7 @@ func RunUI(u UI) error {
 }
 
 // FeefUI is a UI for feef
+// It will contain everything the UI needs including a Feeds objec
 type FeefUI struct {
 	tabs       []string
 	currentTab int
@@ -112,9 +116,7 @@ type box struct {
 }
 
 func drawBox(b box, s tcell.Screen) {
-	// if w, h := s.Size(); w < 2 || h < 2 { // Don't do anything if screen can't fit a box
-	// 	return
-	// }
+	// TODO: gofmt -r to rename these, maybe
 	x1 := b.Min.X
 	x2 := b.Max.X - 1
 	y1 := b.Min.Y
@@ -184,16 +186,12 @@ func (f *FeefUI) Draw(w, h int, s tcell.Screen) {
 	}
 }
 
-// HandleEvents is
+// HandleEvents handles events from an event buffer
 func (f *FeefUI) HandleEvents(events []tcell.Event, s tcell.Screen) (flush bool) {
 	switch e := events[0].(type) {
 	case *tcell.EventKey:
 		switch e.Rune() {
 		case 'q':
-			// if f.doneChan == nil {
-			// 	panic("aeu")
-			// }
-			// f.doneChan <- true
 			os.Exit(0)
 		case 'r':
 			s.Clear()
@@ -214,7 +212,8 @@ func (f *FeefUI) HandleEvents(events []tcell.Event, s tcell.Screen) (flush bool)
 	return true
 }
 
-// Wait is
 func (f *FeefUI) Wait() <-chan bool {
+	// This is a bit weird to get your head around
+	// TODO: think of another solution for letting the application quit
 	return f.doneChan
 }

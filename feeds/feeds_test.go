@@ -7,6 +7,8 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
+// TODO: The list of URLs is used in other places, maybe make it available in 1 place?h
+// TODO: use HTTP mocking e.g. https://github.com/jarcoal/httpmock rather than (possibly unreliable) real-world sites
 var urls []string = []string{
 	"https://github.com/terminal-discord/weechat-discord/commits/master.atom",
 	"https://github.com/qutebrowser/qutebrowser/releases.atom",
