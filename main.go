@@ -12,7 +12,6 @@ import (
 	"git.sr.ht/~skuzzymiglet/feef/feeds"
 	"git.sr.ht/~skuzzymiglet/feef/ui"
 
-	"github.com/gizak/termui/v3"
 	"github.com/pkg/profile"
 	"github.com/sirupsen/logrus"
 )
@@ -48,11 +47,6 @@ func main() {
 	uf.Close()
 
 	defer profile.Start().Stop()
-
-	if err := termui.Init(); err != nil {
-		log.Fatal(err)
-	}
-	defer termui.Close()
 
 	var logFile io.Writer
 	if logFileName != "" {
