@@ -1,3 +1,4 @@
+// Package tilefuncs implements various tiling functions on top of image.Rectangle
 package tilefuncs
 
 import "image"
@@ -17,4 +18,14 @@ func Vertical(n int, screen image.Rectangle) []image.Rectangle {
 		tiles[i] = image.Rect((screen.Dx()/n)*i, screen.Min.Y, (screen.Dx()/n)*(i+1), screen.Max.Y)
 	}
 	return tiles
+}
+
+// Even tiles windows in a grid
+func Even(n int, screen image.Rectangle) []image.Rectangle {
+	return ([]image.Rectangle)(nil)
+}
+
+// BSP tiles in a bspwm-style binary-binary-tree layout
+func BSP(n int, screen image.Rectangle) []image.Rectangle {
+	return ([]image.Rectangle)(nil)
 }
