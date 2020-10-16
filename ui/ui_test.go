@@ -9,5 +9,6 @@ import (
 func TestUI(t *testing.T) {
 	// TODO: make this actually work headlessly (for CI)
 	defer profile.Start().Stop()
-	RunUI(&FeefUI{})
+	done := make(chan struct{}, 1)
+	RunUI(&FeefUI{DoneChan: done}, done)
 }
