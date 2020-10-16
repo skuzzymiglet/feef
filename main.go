@@ -12,7 +12,6 @@ import (
 	"git.sr.ht/~skuzzymiglet/feef/feeds"
 	"git.sr.ht/~skuzzymiglet/feef/ui"
 
-	"github.com/pkg/profile"
 	"github.com/sirupsen/logrus"
 )
 
@@ -26,7 +25,7 @@ func main() {
 		logFileName     string
 	)
 
-	flag.StringVar(&urlsFile, "d", "/home/skuzzymiglet/.config/newsboat/urls", "file with URLs (one per line)")
+	flag.StringVar(&urlsFile, "d", "", "file with URLs (one per line)")
 	flag.StringVar(&logFileName, "l", "", "log file")
 	flag.DurationVar(&refreshInterval, "r", time.Second*60, "time between refreshes")
 	flag.Parse()
@@ -45,8 +44,6 @@ func main() {
 		urls = append(urls, s.Text())
 	}
 	uf.Close()
-
-	defer profile.Start().Stop()
 
 	var logFile io.Writer
 	if logFileName != "" {
@@ -96,5 +93,6 @@ func main() {
 			wg.Wait()
 		}
 	}()
-	ui.RunUI(&ui.FeefUI{})
+	doneChan := make(chan struct{}, 1)
+	ui.RunUI(&ui.FeefUI{DoneChan: doneChan}, doneChan)
 }
