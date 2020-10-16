@@ -8,5 +8,6 @@ import (
 
 func TestUI(t *testing.T) {
 	defer profile.Start().Stop()
-	RunUI(&FeefUI{})
+	done := make(chan struct{}, 1)
+	RunUI(&FeefUI{DoneChan: done}, done)
 }

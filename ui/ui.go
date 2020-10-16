@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"image"
-	"os"
 	"strconv"
 	"strings"
 
@@ -23,11 +22,10 @@ type UI interface {
 	Init() error                                           // Initialize (non-tcell) resources
 	Draw(int, int, tcell.Screen)                           // Draw UI, given width and height
 	HandleEvents([]tcell.Event, tcell.Screen) (flush bool) // Return true to flush event buffer, false to accumulate and pass on next event
-	Wait() <-chan bool                                     // Used to quit
 }
 
 // RunUI is a generic runner for a UI
-func RunUI(u UI) error {
+func RunUI(u UI, stopChan chan struct{}) error {
 	u.Init()
 	encoding.Register()
 	s, err := tcell.NewScreen()
@@ -56,13 +54,11 @@ func RunUI(u UI) error {
 			// }
 		}
 	}()
-
 	for {
 		select {
-		case <-u.Wait():
-			panic("don")
+		case <-stopChan:
+			return nil
 		case ev := <-evChan:
-
 			switch e := ev.(type) {
 			case *tcell.EventResize:
 				w, h := e.Size()
@@ -85,12 +81,11 @@ func RunUI(u UI) error {
 type FeefUI struct {
 	tabs       []string
 	currentTab int
-	doneChan   chan bool
+	DoneChan   chan struct{}
 }
 
 // Init is
 func (f *FeefUI) Init() error {
-	f.doneChan = make(chan bool)
 	f.tabs = []string{"new", "unread", "old", "queue"}
 	return nil
 }
@@ -190,11 +185,7 @@ func (f *FeefUI) HandleEvents(events []tcell.Event, s tcell.Screen) (flush bool)
 	case *tcell.EventKey:
 		switch e.Rune() {
 		case 'q':
-			// if f.doneChan == nil {
-			// 	panic("aeu")
-			// }
-			// f.doneChan <- true
-			os.Exit(0)
+			f.DoneChan <- struct{}{}
 		case 'r':
 			s.Clear()
 			s.Sync()
@@ -212,9 +203,4 @@ func (f *FeefUI) HandleEvents(events []tcell.Event, s tcell.Screen) (flush bool)
 		}
 	}
 	return true
-}
-
-// Wait is
-func (f *FeefUI) Wait() <-chan bool {
-	return f.doneChan
 }
