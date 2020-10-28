@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"git.sr.ht/~skuzzymiglet/feef/ui/tilefuncs"
+	"git.sr.ht/~skuzzymiglet/tilefuncs"
 	"github.com/gdamore/tcell"
 	"github.com/gdamore/tcell/encoding"
 	"github.com/mitchellh/go-wordwrap"
