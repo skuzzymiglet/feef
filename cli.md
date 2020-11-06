@@ -1,30 +1,31 @@
 # format
 
-`t`: title
-`d`: description
-`l`: link
-`p`: time published
-`p(02/01 2006)`: time published, formatted
-`c`: content
-`q`: query syntax for feed item
++ `t`: title
++ `d`: description
++ `l`: link
++ `p`: time published
++ `p(02/01 2006)`: time published, formatted
++ `c`: content
++ `q`: query syntax for feed item
 
 lower: item
+
 upper: feed
 
 # query
 
-`*`: all
-
-`$`: random
-`+`: newest
-`-`: oldest
++ `*`: all
++ 
++ `$`: random
++ `+`: newest
++ `-`: oldest
 postfix above with number for n random/new/old
 postfix with `*` for ordering
 
-`feef arp242~*`
-`feef arp242~+`
-`feef *~+2`
-`feef "dave cheney~-*"`
++ `feef arp242~*`
++ `feef arp242~+`
++ `feef *~+2`
++ `feef "dave cheney~-*"`
 
 1 arg:  query (formatted to default)
 2 args: format query
