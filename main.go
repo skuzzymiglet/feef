@@ -14,10 +14,11 @@ func printHelp() {
 	flag.PrintDefaults()
 }
 func main() {
+	defaultTemplate := "{{.Title}}: {{.Link}} ({{.Feed.Title}})"
 	// Command line syntax:
 	// feef query format
 	urlsFile := flag.String("u", "urls", "file with newline delimited URLs")
-	templateString := flag.String("f", "{{.Title}}: {{.Link}}", "output template for each feed item")
+	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	help := flag.Bool("h", false, "print help and exit")
 	flag.Parse()
 
@@ -41,7 +42,9 @@ func main() {
 	for scanner.Scan() {
 		urls = append(urls, scanner.Text())
 	}
-	// fmt.Println(urls)
+	// TODO: QUERIES
+	// + use gobwas/glob
+	// + have 2 args rather than `x~y` cos urls can contain ~
 	switch flag.NArg() {
 	case 1: // Query
 		var v []LinkedFeedItem
@@ -56,7 +59,6 @@ func main() {
 			}
 			os.Stdout.Write([]byte("\n")) // Do we need to check this?
 		}
-	case 2: // Format + Query
 	default:
 		printHelp()
 		os.Exit(2)
