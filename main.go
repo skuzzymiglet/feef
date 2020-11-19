@@ -4,58 +4,61 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"net/http"
+	"log"
 	"os"
-	"sync"
-
-	"github.com/mmcdole/gofeed"
+	"text/template"
 )
 
+func printHelp() {
+	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s: \n\n%s [format] [query]\n\n", os.Args[0], os.Args[0]) // TODO: make this tidier
+	flag.PrintDefaults()
+}
 func main() {
 	// Command line syntax:
 	// feef query format
-	urls := flag.String("u", "urls", "file with newline delimited URLs")
-	query := flag.String("q", "", "query (feed~item)")
-	format := flag.String("f", "%t %u", "format for printing")
+	urlsFile := flag.String("u", "urls", "file with newline delimited URLs")
+	templateString := flag.String("f", "{{.Title}}: {{.Link}}", "output template for each feed item")
+	help := flag.Bool("h", false, "print help and exit")
 	flag.Parse()
-	switch os.Args[1] {
-	case "list":
-		urlsFile, err := os.Open(*urls)
+
+	if *help {
+		printHelp()
+	}
+
+	// Parse template
+	tmpl, err := template.New("output").Parse(*templateString)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Get list of URLs
+	urls := make([]string, 0)
+	file, err := os.Open(*urlsFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		urls = append(urls, scanner.Text())
+	}
+	// fmt.Println(urls)
+	switch flag.NArg() {
+	case 1: // Query
+		var v []LinkedFeedItem
+		err := Find(flag.Arg(0), &v, urls)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
-		scanner := bufio.NewScanner(urlsFile)
-		var wg sync.WaitGroup
-		for scanner.Scan() {
-			wg.Add(1)
-			go func(u string, wg *sync.WaitGroup) {
-				parser := gofeed.NewParser() // fucking race conditions
-				defer wg.Done()
-				resp, err := http.Get(u)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "error downloading %s: %s\n", u, err)
-					return
-				}
-				defer resp.Body.Close()
-				feed, err := parser.Parse(resp.Body)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "error parsing %s: %s\n", u, err)
-					return
-				}
-				lf := LinkFeed(feed)
-				fmt.Printf(*format, lf)
-				fmt.Println()
-			}(scanner.Text(), &wg)
+		for _, val := range v {
+			err := tmpl.Execute(os.Stdout, val)
+			if err != nil {
+				log.Fatal(err)
+			}
+			os.Stdout.Write([]byte("\n")) // Do we need to check this?
 		}
-		wg.Wait()
-	case "feeds":
-	case "show":
-		item, err := FindItem(*query)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Printf(*format, item)
-		fmt.Println()
+	case 2: // Format + Query
+	default:
+		printHelp()
+		os.Exit(2)
 	}
 }

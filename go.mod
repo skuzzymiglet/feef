@@ -3,6 +3,7 @@ module git.sr.ht/~skuzzymiglet/feef
 go 1.15
 
 require (
+	9fans.net/go v0.0.2 // indirect
 	github.com/SlyMarbo/rss v1.0.1
 	github.com/gdamore/tcell v1.4.0
 	github.com/kr/pretty v0.2.1

@@ -10,36 +10,31 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
-// FindItem finds a feed item
-// q should be a in the format `feed~item`
-// If fuzzy searches if feed or item is not a URL
-func FindItem(q string) (LinkedFeedItem, error) {
-	// TODO: cache
-	var feed, item string
-	parts := strings.SplitN(q, "~", 2)
-	if len(parts) != 2 {
-		return LinkedFeedItem{}, fmt.Errorf("Invalid query: \"%s\"", q)
-	}
-	feed = parts[0]
-	item = parts[1]
+const delim = "~"
+
+func FindItems(feed, item string, urls []string) ([]LinkedFeedItem, error) {
+	buf := make([]LinkedFeedItem, 0)
 	parser := gofeed.NewParser()
 	// Fetch feed URL (exact)
 	if _, err := url.ParseRequestURI(feed); err == nil {
 		resp, err := http.Get(feed)
 		if err != nil {
-			return LinkedFeedItem{}, fmt.Errorf("FindItem: error downloading %s: %w", feed, err)
+			return nil, fmt.Errorf("FindItem: error downloading %s: %w", feed, err)
 		}
-		defer resp.Body.Close()
 		f, err := parser.Parse(resp.Body)
+		resp.Body.Close()
 		if err != nil {
-			return LinkedFeedItem{}, fmt.Errorf("FindItem: error parsing %s: %w", feed, err)
+			return nil, fmt.Errorf("FindItem: error parsing %s: %w", feed, err)
 		}
 		lf := LinkFeed(f)
 		// Search GUIDs/links (exact)
 		for _, i := range lf.Items {
 			if i.GUID == item || i.Link == item {
-				return i, nil
+				buf = append(buf, i)
 			}
+		}
+		if len(buf) != 0 {
+			return buf, nil
 		}
 		// Fuzzy search titles
 		for _, i := range lf.Items {
@@ -51,18 +46,36 @@ func FindItem(q string) (LinkedFeedItem, error) {
 				}
 			}
 			if wordsMatched >= len(words) {
-				return i, nil
+				buf = append(buf, i)
 			}
+		}
+		if len(buf) != 0 {
+			return buf, nil
 		}
 	} else {
 		// Search urls (this is expensive as hell)
 		// I'm not implementing this until we have a cache
-		// for _, u := range urls {
-		// }
+		for range urls {
+		}
 	}
-	return LinkedFeedItem{}, errors.New("Feed item not found")
+	return []LinkedFeedItem{}, errors.New("Feed item not found")
 }
 
-// func FindFeed(q string) (LinkedFeedItem, error) {
-// 	return LinkedFeedItem{}, errors.New("Feed item not found")
+// func FindFeeds(feed string, urls []string) ([]gofeed.Feed, error) {
+// 	return nil, nil
 // }
+
+func Find(query string, v *[]LinkedFeedItem, urls []string) error {
+	// TODO: cache
+	var err error
+	parts := strings.SplitN(query, delim, 2)
+	switch len(parts) {
+	// case 1:
+	// 	v, err = FindFeeds(parts[0], urls)
+	case 2:
+		*v, err = FindItems(parts[0], parts[1], urls)
+	default:
+		err = errors.New("Invalid query")
+	}
+	return err
+}
