@@ -14,9 +14,8 @@ func printHelp() {
 	flag.PrintDefaults()
 }
 func main() {
-	defaultTemplate := "{{.Title}}: {{.Link}} ({{.Feed.Title}})"
-	// Command line syntax:
-	// feef query format
+	// defaultTemplate := "{{.Title}}: {{.Link}} ({{.Feed.Title}})"
+	defaultTemplate := "{{.Feed.Link}} {{.Link}}"
 	urlsFile := flag.String("u", "urls", "file with newline delimited URLs")
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	help := flag.Bool("h", false, "print help and exit")
@@ -42,25 +41,19 @@ func main() {
 	for scanner.Scan() {
 		urls = append(urls, scanner.Text())
 	}
-	// TODO: QUERIES
-	// + use gobwas/glob
-	// + have 2 args rather than `x~y` cos urls can contain ~
-	switch flag.NArg() {
-	case 1: // Query
-		var v []LinkedFeedItem
-		err := Find(flag.Arg(0), &v, urls)
+	if flag.NArg() != 2 {
+		printHelp()
+		os.Exit(2)
+	}
+	v, err := FindItems(flag.Arg(0), flag.Arg(1), urls)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, val := range v {
+		err := tmpl.Execute(os.Stdout, val)
 		if err != nil {
 			log.Fatal(err)
 		}
-		for _, val := range v {
-			err := tmpl.Execute(os.Stdout, val)
-			if err != nil {
-				log.Fatal(err)
-			}
-			os.Stdout.Write([]byte("\n")) // Do we need to check this?
-		}
-	default:
-		printHelp()
-		os.Exit(2)
+		os.Stdout.Write([]byte("\n")) // Do we need to check this?
 	}
 }

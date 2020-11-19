@@ -84,18 +84,3 @@ func FindItems(feed, item string, urls []string) ([]LinkedFeedItem, error) {
 	}
 	return []LinkedFeedItem{}, errors.New("Feed item not found")
 }
-
-func Find(query string, v *[]LinkedFeedItem, urls []string) error {
-	// TODO: cache
-	var err error
-	parts := strings.SplitN(query, delim, 2)
-	switch len(parts) {
-	// case 1:
-	// 	v, err = FindFeeds(parts[0], urls)
-	case 2:
-		*v, err = FindItems(parts[0], parts[1], urls)
-	default:
-		err = errors.New("Invalid query")
-	}
-	return err
-}
