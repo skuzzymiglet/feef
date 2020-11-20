@@ -21,6 +21,7 @@ func main() {
 	// defaultTemplate := "{{.Title}}: {{.Link}} ({{.Feed.Title}})"
 	defaultTemplate := "{{.Feed.FeedLink}}" + delim + "{{.GUID}}"
 	urlsFile := flag.String("u", "", "file with newline delimited URLs")
+	// TODO: allow comment-outs in urls file
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	help := flag.Bool("h", false, "print help and exit")
 	flag.Parse()
@@ -46,13 +47,16 @@ func main() {
 
 	// Get list of URLs
 	urls := make([]string, 0)
-	file, err := os.Open(*urlsFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		urls = append(urls, scanner.Text())
+	if *urlsFile != "" {
+		file, err := os.Open(*urlsFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			urls = append(urls, scanner.Text())
+		}
+		file.Close()
 	}
 	var v []LinkedFeedItem
 	switch flag.NArg() {
@@ -60,6 +64,9 @@ func main() {
 		v, err = FindItems(flag.Arg(0), flag.Arg(1), urls)
 	case 1:
 		parts := strings.Split(flag.Arg(0), delim)
+		if len(parts) != 2 {
+			log.Fatalf("Not enought parts in query %s", flag.Arg(0))
+		}
 		v, err = FindItems(parts[0], parts[1], urls)
 	}
 	if err != nil {
@@ -77,5 +84,4 @@ func main() {
 		}
 		os.Stdout.Write([]byte("\n")) // Do we need to check this?
 	}
-	fmt.Println(len(v))
 }

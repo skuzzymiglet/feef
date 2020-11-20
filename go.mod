@@ -6,6 +6,7 @@ require (
 	9fans.net/go v0.0.2 // indirect
 	github.com/SlyMarbo/rss v1.0.1
 	github.com/gdamore/tcell v1.4.0
+	github.com/gobwas/glob v0.2.3
 	github.com/kr/pretty v0.2.1
 	github.com/markbates/pkger v0.17.1
 	github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7
