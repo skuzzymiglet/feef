@@ -6,8 +6,10 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -31,9 +33,9 @@ func Get(url string, feed *LinkedFeed) error {
 
 func FindItems(feed, item string, urls []string) ([]LinkedFeedItem, error) {
 	// TODO: globs
-	buf := make([]LinkedFeedItem, 0)         // For searching
+	buf := make([]LinkedFeedItem, 0)         // Search results
 	feeds := make([]LinkedFeed, len(urls)+1) // All feeds
-	sema := make(chan struct{}, 6)
+	sema := make(chan struct{}, 10)
 	// Fetch feed URL (exact)
 	if feed == "*" {
 		var wg sync.WaitGroup
@@ -79,8 +81,26 @@ func FindItems(feed, item string, urls []string) ([]LinkedFeedItem, error) {
 			}
 		}
 	}
-	if len(buf) != 0 {
-		return buf, nil
+	if len(buf) == 0 {
+		return []LinkedFeedItem{}, errors.New("Feed item not found")
 	}
-	return []LinkedFeedItem{}, errors.New("Feed item not found")
+	sort.Slice(buf, func(i, j int) bool {
+		var it, jt time.Time
+		if buf[i].PublishedParsed != nil {
+			it = *buf[i].PublishedParsed
+		} else if buf[i].UpdatedParsed != nil {
+			it = *buf[i].UpdatedParsed
+		} else {
+			panic("error sorting feed: item does not include an update or published time")
+		}
+		if buf[j].PublishedParsed != nil {
+			jt = *buf[j].PublishedParsed
+		} else if buf[j].UpdatedParsed != nil {
+			jt = *buf[j].UpdatedParsed
+		} else {
+			panic("error sorting feed: item does not include an update or published time")
+		}
+		return jt.Before(it) // Newest first, so comparator is upside-down
+	})
+	return buf, nil
 }

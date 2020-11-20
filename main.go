@@ -2,11 +2,15 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"strings"
 	"text/template"
+	"time"
 )
 
 func printHelp() {
@@ -15,8 +19,8 @@ func printHelp() {
 }
 func main() {
 	// defaultTemplate := "{{.Title}}: {{.Link}} ({{.Feed.Title}})"
-	defaultTemplate := "{{.Feed.Link}} {{.Link}}"
-	urlsFile := flag.String("u", "urls", "file with newline delimited URLs")
+	defaultTemplate := "{{.Feed.FeedLink}}" + delim + "{{.GUID}}"
+	urlsFile := flag.String("u", "", "file with newline delimited URLs")
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	help := flag.Bool("h", false, "print help and exit")
 	flag.Parse()
@@ -26,7 +30,16 @@ func main() {
 	}
 
 	// Parse template
-	tmpl, err := template.New("output").Parse(*templateString)
+	tmpl, err := template.New("output").
+		Funcs(map[string]interface{}{
+			"date": func(t time.Time) string {
+				return t.Format("January 2, 2006")
+			},
+			"format": func(fmt string, t time.Time) string {
+				return t.Format(fmt)
+			},
+		}).
+		Parse(*templateString)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,19 +54,28 @@ func main() {
 	for scanner.Scan() {
 		urls = append(urls, scanner.Text())
 	}
-	if flag.NArg() != 2 {
-		printHelp()
-		os.Exit(2)
+	var v []LinkedFeedItem
+	switch flag.NArg() {
+	case 2:
+		v, err = FindItems(flag.Arg(0), flag.Arg(1), urls)
+	case 1:
+		parts := strings.Split(flag.Arg(0), delim)
+		v, err = FindItems(parts[0], parts[1], urls)
 	}
-	v, err := FindItems(flag.Arg(0), flag.Arg(1), urls)
 	if err != nil {
 		log.Fatal(err)
 	}
+	var buf bytes.Buffer
 	for _, val := range v {
-		err := tmpl.Execute(os.Stdout, val)
+		err := tmpl.Execute(&buf, val)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("error executing template:", err)
+			fmt.Printf("(ERROR)")
+		} else {
+			io.Copy(os.Stdout, &buf)
+			buf.Reset()
 		}
 		os.Stdout.Write([]byte("\n")) // Do we need to check this?
 	}
+	fmt.Println(len(v))
 }
