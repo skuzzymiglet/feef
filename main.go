@@ -3,11 +3,13 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -19,8 +21,13 @@ func printHelp() {
 }
 func main() {
 	// defaultTemplate := "{{.Title}}: {{.Link}} ({{.Feed.Title}})"
+	var defaultUrlsFile string
+	cdir, err := os.UserConfigDir()
+	if err == nil {
+		defaultUrlsFile = filepath.Join(cdir, "feef", "urls")
+	}
 	defaultTemplate := "{{.Feed.FeedLink}}" + delim + "{{.GUID}}"
-	urlsFile := flag.String("u", "", "file with newline delimited URLs")
+	urlsFile := flag.String("u", defaultUrlsFile, "file with newline delimited URLs")
 	// TODO: allow comment-outs in urls file
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	// Query Params

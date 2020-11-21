@@ -16,6 +16,8 @@ import (
 
 const delim = "~"
 
+var ErrNotFound = errors.New("Feed item not found")
+
 // Param holds query parameters
 type Param struct {
 	max  int
@@ -92,7 +94,7 @@ func FindItems(feed, item string, p Param) ([]LinkedFeedItem, error) { // TODO: 
 		case feed, more := <-work:
 			if !more { // TODO: decide when to stop looking for items when maximum is reached
 				if len(buf) == 0 {
-					return []LinkedFeedItem{}, errors.New("Feed item not found")
+					return []LinkedFeedItem{}, ErrNotFound
 					// TODO: be nicer to the user when they don't specify an urls file and nothing's found!
 				}
 				sort.Slice(buf, func(i, j int) bool {
