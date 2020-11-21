@@ -16,6 +16,13 @@ import (
 
 const delim = "~"
 
+// Param holds query parameters
+type Param struct {
+	max  int
+	urls []string
+}
+
+// Get fetches an URL into a LinkedFeed
 func Get(url string) (LinkedFeed, error) {
 	// TODO: reuse parser and http client
 	parser := gofeed.NewParser() // lol race
@@ -31,9 +38,8 @@ func Get(url string) (LinkedFeed, error) {
 	return LinkFeed(f), nil
 }
 
-func FindItems(feed, item string, urls []string) ([]LinkedFeedItem, error) {
-	// TODO: globs
-
+// FindItems finds LinkedFeedItems from the specified query
+func FindItems(feed, item string, p Param) ([]LinkedFeedItem, error) { // TODO: notify
 	work := make(chan LinkedFeed)
 	errChan := make(chan error)
 	go func() {
@@ -53,7 +59,7 @@ func FindItems(feed, item string, urls []string) ([]LinkedFeedItem, error) {
 				return
 			}
 			var wg sync.WaitGroup
-			for i, u := range urls {
+			for i, u := range p.urls {
 				// TODO: match titles and stuff. But for that we need to fetch feed first ($$$)
 				if glob.Match(u) {
 					wg.Add(1)
@@ -84,7 +90,7 @@ func FindItems(feed, item string, urls []string) ([]LinkedFeedItem, error) {
 		case err := <-errChan:
 			log.Println(err)
 		case feed, more := <-work:
-			if !more {
+			if !more { // TODO: decide when to stop looking for items when maximum is reached
 				if len(buf) == 0 {
 					return []LinkedFeedItem{}, errors.New("Feed item not found")
 					// TODO: be nicer to the user when they don't specify an urls file and nothing's found!
@@ -107,7 +113,13 @@ func FindItems(feed, item string, urls []string) ([]LinkedFeedItem, error) {
 					}
 					return jt.Before(it) // Newest first, so comparator is upside-down
 				})
-				return buf, nil
+				if p.max == 0 || p.max >= len(buf) {
+					return buf, nil
+				} else if p.max <= len(buf) {
+					return buf[:p.max-1], nil
+				} else {
+					panic(nil) // lol
+				}
 			}
 			for _, i := range feed.Items {
 				matched := true
