@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -33,6 +34,7 @@ func main() {
 	// TODO: allow comment-outs in urls file
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	cmd := flag.String("c", "", "execute command template for each item")
+	notify := flag.Bool("n", true, "print new items as they're published") // bad description lol
 	// Query Params
 	max := flag.Int("m", 100, "maximum items to output, 0 for no limit")
 	help := flag.Bool("h", false, "print help and exit")
@@ -129,10 +131,15 @@ func main() {
 	}
 	go func() {
 		items := make(chan LinkedFeedItem, 0)
-		go func() {
-			GetAll(p.urls, 10, items, errChan)
-			close(items)
-		}()
+		if *notify {
+			ctx := context.Background()
+			go NotifyNew(ctx, NotifyParam{urls: urls, poll: time.Second * 10, maxDownload: 10}, items, errChan)
+		} else {
+			go func() {
+				GetAll(p.urls, 10, items, errChan)
+				close(items)
+			}()
+		}
 		Filter(p, items, results, errChan)
 		close(results)
 	}()

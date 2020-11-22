@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,7 +13,7 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
-const delim = "~"
+const delim = "~" // TODO: make this configurable
 
 var ErrNotFound = errors.New("Feed item not found")
 
@@ -20,7 +21,7 @@ var ErrNotFound = errors.New("Feed item not found")
 type Param struct {
 	max     int
 	urls    []string
-	sort    bool
+	sort    bool // TODO: currently sorts by date. Make it clearer, maybe support sorting by other things
 	item    glob.Glob
 	feedURL glob.Glob
 }
@@ -41,6 +42,8 @@ func Get(url string) (LinkedFeed, error) {
 	}
 	return LinkFeed(f), nil
 }
+
+// TODO: use contexts for cancellation of stages in the pipeline
 
 func GetAll(urls []string, threads int, out chan LinkedFeedItem, errChan chan error) {
 	sema := make(chan struct{}, threads) // TODO: make number of downloader threads configurable
@@ -63,6 +66,40 @@ func GetAll(urls []string, threads int, out chan LinkedFeedItem, errChan chan er
 		}(u)
 	}
 	wg.Wait()
+}
+
+type NotifyParam struct {
+	urls        []string
+	poll        time.Duration
+	maxDownload int
+}
+
+func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errChan chan error) {
+	sema := make(chan struct{}, n.maxDownload)
+	start := time.Now()
+	for _, u := range n.urls {
+		go func(u string) {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.Tick(n.poll):
+				sema <- struct{}{}
+				lf, err := Get(u)
+				if err != nil {
+					errChan <- err
+				}
+				for _, i := range lf.Items {
+					// Goddamn gofeed and nil pointers!
+					if i.PublishedParsed != nil {
+						if start.Before(*i.PublishedParsed) { // It's new!
+							out <- i
+						}
+					}
+				}
+				<-sema
+			}
+		}(u)
+	}
 }
 
 func Filter(p Param, in, out chan LinkedFeedItem, errChan chan error) {
