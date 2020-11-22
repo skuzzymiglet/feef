@@ -11,7 +11,6 @@ import (
 
 	"github.com/gobwas/glob"
 	"github.com/mmcdole/gofeed"
-	"github.com/sirupsen/logrus"
 )
 
 const delim = "~" // TODO: make this configurable
@@ -79,29 +78,31 @@ func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errC
 	sema := make(chan struct{}, n.maxDownload)
 	start := time.Now()
 	for _, u := range n.urls {
+		// TODO: stagger refreshes to reduce semaphore contention,maybe
 		go func(u string) {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				sema <- struct{}{}
-				logrus.Debugln("Getting", u)
-				lf, err := Get(u)
-				if err != nil {
-					errChan <- err
-				}
-				for _, i := range lf.Items {
-					// Goddamn gofeed and nil pointers!
-					if i.PublishedParsed != nil {
-						logrus.Infoln("checking", i.Title)
-						if start.Before(*i.PublishedParsed) { // It's new!
-							panic("click, noife")
-							out <- i
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					sema <- struct{}{}
+					// logrus.Debugln("refreshing", u)
+					lf, err := Get(u)
+					if err != nil {
+						errChan <- err
+					}
+					for _, i := range lf.Items {
+						// Goddamn gofeed and nil pointers!
+						if i.PublishedParsed != nil {
+							// logrus.Infoln("checking", i.Title)
+							if start.Before(*i.PublishedParsed) { // It's new!
+								out <- i
+							}
 						}
 					}
+					<-sema
+					time.Sleep(n.poll)
 				}
-				<-sema
-				time.Sleep(n.poll)
 			}
 		}(u)
 	}
