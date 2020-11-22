@@ -3,9 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
-	"net/url"
 	"sort"
 	"sync"
 	"time"
@@ -20,13 +18,17 @@ var ErrNotFound = errors.New("Feed item not found")
 
 // Param holds query parameters
 type Param struct {
-	max  int
-	urls []string
+	max     int
+	urls    []string
+	sort    bool
+	item    glob.Glob
+	feedURL glob.Glob
 }
 
 // Get fetches an URL into a LinkedFeed
 func Get(url string) (LinkedFeed, error) {
 	// TODO: reuse parser and http client
+	// TODO: correct user-agent for reddit
 	parser := gofeed.NewParser() // lol race
 	resp, err := http.Get(url)
 	if err != nil {
@@ -40,108 +42,73 @@ func Get(url string) (LinkedFeed, error) {
 	return LinkFeed(f), nil
 }
 
-// FindItems finds LinkedFeedItems from the specified query
-func FindItems(feed, item string, p Param) ([]LinkedFeedItem, error) { // TODO: notify
-	work := make(chan LinkedFeed)
-	errChan := make(chan error)
-	go func() {
-		sema := make(chan struct{}, 10) // TODO: make number of downloader threads configurable
-		// Send work down a channel
-		if t, err := url.ParseRequestURI(feed); err == nil && t.IsAbs() {
-			lf, err := Get(feed)
+func GetAll(urls []string, threads int, out chan LinkedFeedItem, errChan chan error) {
+	sema := make(chan struct{}, threads) // TODO: make number of downloader threads configurable
+	// Send work down a channel
+	var wg sync.WaitGroup
+	for _, u := range urls {
+		wg.Add(1)
+		// TODO: match titles and stuff. But for that we need to fetch feed first ($$$)
+		go func(u string) {
+			defer wg.Done()
+			sema <- struct{}{}
+			lf, err := Get(u)
 			if err != nil {
 				errChan <- err
-				return
 			}
-			work <- lf
-		} else {
-			glob, err := glob.Compile(feed)
-			if err != nil {
-				errChan <- fmt.Errorf("error compiling feed glob \"%s\": %w", feed, err)
-				return
+			for _, i := range lf.Items {
+				out <- i
 			}
-			var wg sync.WaitGroup
-			for i, u := range p.urls {
-				// TODO: match titles and stuff. But for that we need to fetch feed first ($$$)
-				if glob.Match(u) {
-					wg.Add(1)
-					go func(sema chan struct{}, wg *sync.WaitGroup, i int, u string) {
-						defer wg.Done()
-						sema <- struct{}{}
-						lf, err := Get(u)
-						if err != nil {
-							errChan <- err
-						}
-						work <- lf
-						<-sema
-					}(sema, &wg, i, u)
-				}
-			}
-			wg.Wait()
-		}
-		close(work)
-	}()
-
-	glob, err := glob.Compile(item)
-	if err != nil {
-		return nil, fmt.Errorf("error compiling item glob \"%s\": %w", feed, err)
+			<-sema
+		}(u)
 	}
-	buf := make([]LinkedFeedItem, 0)
-	for {
-		select {
-		case err := <-errChan:
-			log.Println(err)
-		case feed, more := <-work:
-			if !more { // TODO: decide when to stop looking for items when maximum is reached
-				if len(buf) == 0 {
-					return []LinkedFeedItem{}, ErrNotFound
-					// TODO: be nicer to the user when they don't specify an urls file and nothing's found!
-				}
-				sort.Slice(buf, func(i, j int) bool {
-					var it, jt time.Time
-					if buf[i].PublishedParsed != nil {
-						it = *buf[i].PublishedParsed
-					} else if buf[i].UpdatedParsed != nil {
-						it = *buf[i].UpdatedParsed
-					} else {
-						panic("error sorting feed: item does not include an update or published time")
-					}
-					if buf[j].PublishedParsed != nil {
-						jt = *buf[j].PublishedParsed
-					} else if buf[j].UpdatedParsed != nil {
-						jt = *buf[j].UpdatedParsed
-					} else {
-						panic("error sorting feed: item does not include an update or published time")
-					}
-					return jt.Before(it) // Newest first, so comparator is upside-down
-				})
-				if p.max == 0 || p.max >= len(buf) {
-					return buf, nil
-				} else if p.max <= len(buf) {
-					return buf[:p.max-1], nil
-				} else {
-					panic(nil) // lol
-				}
+	wg.Wait()
+}
+
+func Filter(p Param, in, out chan LinkedFeedItem, errChan chan error) {
+	var buf []LinkedFeedItem
+	for i := range in {
+		matched := true
+		switch {
+		case p.item.Match(i.Link):
+		case p.item.Match(i.Title):
+		case (i.Author != nil && p.item.Match(i.Author.Name)):
+		case (i.Author != nil && p.item.Match(i.Author.Email)):
+		default:
+			matched = false
+		}
+		if p.sort {
+			buf = append(buf, i)
+		} else if matched {
+			out <- i
+		}
+	}
+	if p.sort {
+		sort.Slice(buf, func(i, j int) bool {
+			var it, jt time.Time
+			if buf[i].PublishedParsed != nil {
+				it = *buf[i].PublishedParsed
+			} else if buf[i].UpdatedParsed != nil {
+				it = *buf[i].UpdatedParsed
+			} else {
+				panic("error sorting feed: item does not include an update or published time")
 			}
-			for _, i := range feed.Items {
-				matched := true
-				switch {
-				// case glob.Match(i.GUID):
-				// 	log.Printf("%s matched GUID %s", item, i.GUID)
-				case glob.Match(i.Link):
-					// log.Printf("\"%s\" matched link \"%s\"", item, i.Link)
-				case glob.Match(i.Title):
-					// log.Printf("\"%s\" matched title \"%s\"", item, i.Title)
-				case (i.Author != nil && glob.Match(i.Author.Name)):
-					// log.Printf("\"%s\" matched author name \"%s\"", item, i.Author.Name)
-				case (i.Author != nil && glob.Match(i.Author.Email)):
-					// log.Printf("\"%s\" matched author email \"%s\"", item, i.Author.Email)
-				default:
-					matched = false
-				}
-				if matched {
-					buf = append(buf, i)
-				}
+			if buf[j].PublishedParsed != nil {
+				jt = *buf[j].PublishedParsed
+			} else if buf[j].UpdatedParsed != nil {
+				jt = *buf[j].UpdatedParsed
+			} else {
+				panic("error sorting feed: item does not include an update or published time")
+			}
+			return jt.Before(it) // Newest first, so comparator is upside-down
+		})
+		if p.max == 0 || p.max >= len(buf) {
+			for _, v := range buf {
+				out <- v
+			}
+		} else if p.max <= len(buf) {
+			for _, v := range buf[:p.max-1] {
+				out <- v
 			}
 		}
 	}

@@ -3,15 +3,14 @@ module git.sr.ht/~skuzzymiglet/feef
 go 1.15
 
 require (
-	9fans.net/go v0.0.2 // indirect
-	github.com/SlyMarbo/rss v1.0.1
-	github.com/gdamore/tcell v1.4.0
+	github.com/PuerkitoBio/goquery v1.6.0 // indirect
+	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/gobwas/glob v0.2.3
-	github.com/kr/pretty v0.2.1
-	github.com/markbates/pkger v0.17.1
-	github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7
 	github.com/mmcdole/gofeed v1.1.0
-	github.com/pkg/profile v1.5.0
-	github.com/sirupsen/logrus v1.6.0
-	github.com/skuzzymiglet/gofeed v1.1.2
+	github.com/mmcdole/goxpp v0.0.0-20200921145534-2f3784f67354 // indirect
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/stretchr/testify v1.4.0 // indirect
+	golang.org/x/net v0.0.0-20201027133719-8eef5233e2a1 // indirect
+	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
+	gopkg.in/yaml.v2 v2.2.7 // indirect
 )
