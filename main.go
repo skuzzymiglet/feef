@@ -149,7 +149,7 @@ func main() {
 	for {
 		select {
 		case err := <-errChan:
-			log.Println("err:", err)
+			log.Println(err)
 		case val, more := <-results:
 			if !more {
 				return
