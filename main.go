@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gobwas/glob"
+	"github.com/sirupsen/logrus"
 )
 
 func printHelp() {
@@ -23,6 +24,7 @@ func printHelp() {
 	flag.PrintDefaults()
 }
 func main() {
+	logrus.SetLevel(logrus.DebugLevel)
 	// defaultTemplate := "{{.Title}}: {{.Link}} ({{.Feed.Title}})"
 	var defaultUrlsFile string
 	cdir, err := os.UserConfigDir()

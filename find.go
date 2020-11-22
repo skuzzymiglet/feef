@@ -11,6 +11,7 @@ import (
 
 	"github.com/gobwas/glob"
 	"github.com/mmcdole/gofeed"
+	"github.com/sirupsen/logrus"
 )
 
 const delim = "~" // TODO: make this configurable
@@ -82,8 +83,9 @@ func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errC
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.Tick(n.poll):
+			default:
 				sema <- struct{}{}
+				logrus.Debugln("Getting", u)
 				lf, err := Get(u)
 				if err != nil {
 					errChan <- err
@@ -91,12 +93,15 @@ func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errC
 				for _, i := range lf.Items {
 					// Goddamn gofeed and nil pointers!
 					if i.PublishedParsed != nil {
+						logrus.Infoln("checking", i.Title)
 						if start.Before(*i.PublishedParsed) { // It's new!
+							panic("click, noife")
 							out <- i
 						}
 					}
 				}
 				<-sema
+				time.Sleep(n.poll)
 			}
 		}(u)
 	}
