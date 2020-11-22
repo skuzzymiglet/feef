@@ -86,7 +86,9 @@ func main() {
 		}
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
-			urls = append(urls, scanner.Text())
+			if !strings.HasPrefix(scanner.Text(), "#") {
+				urls = append(urls, scanner.Text())
+			}
 		}
 		file.Close()
 	}
