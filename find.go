@@ -126,6 +126,7 @@ func Filter(p Param, in, out chan LinkedFeedItem, errChan chan error) {
 			buf = append(buf, i)
 		} else if matched {
 			out <- i
+			sent++
 		}
 		if sent > p.max {
 			return
