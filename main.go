@@ -31,12 +31,13 @@ func main() {
 	if err == nil {
 		defaultUrlsFile = filepath.Join(cdir, "feef", "urls")
 	}
-	defaultTemplate := "{{.Feed.FeedLink}}" + delim + "{{.GUID}}"
+	defaultTemplate := "{{.GUID}}"
 	urlsFile := flag.String("u", defaultUrlsFile, "file with newline delimited URLs")
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	cmd := flag.String("c", "", "execute command template for each item")
 	notify := flag.Bool("n", false, "print new items as they're published") // bad description lol
 	max := flag.Int("m", 100, "maximum items to output, 0 for no limit")
+	sort := flag.Bool("s", false, "sort by when published")
 	help := flag.Bool("h", false, "print help and exit")
 	flag.Parse()
 
@@ -96,7 +97,7 @@ func main() {
 	p := Param{
 		max:     *max,
 		urls:    urls,
-		sort:    false,
+		sort:    *sort,
 		item:    glob.MustCompile("*"),
 		feedURL: glob.MustCompile("*"),
 	}
