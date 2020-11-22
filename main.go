@@ -33,11 +33,9 @@ func main() {
 	}
 	defaultTemplate := "{{.Feed.FeedLink}}" + delim + "{{.GUID}}"
 	urlsFile := flag.String("u", defaultUrlsFile, "file with newline delimited URLs")
-	// TODO: allow comment-outs in urls file
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	cmd := flag.String("c", "", "execute command template for each item")
 	notify := flag.Bool("n", false, "print new items as they're published") // bad description lol
-	// Query Params
 	max := flag.Int("m", 100, "maximum items to output, 0 for no limit")
 	help := flag.Bool("h", false, "print help and exit")
 	flag.Parse()

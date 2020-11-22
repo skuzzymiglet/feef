@@ -111,6 +111,7 @@ func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errC
 
 func Filter(p Param, in, out chan LinkedFeedItem, errChan chan error) {
 	var buf []LinkedFeedItem
+	var sent int
 	for i := range in {
 		matched := true
 		switch {
@@ -125,6 +126,9 @@ func Filter(p Param, in, out chan LinkedFeedItem, errChan chan error) {
 			buf = append(buf, i)
 		} else if matched {
 			out <- i
+		}
+		if sent > p.max {
+			return
 		}
 	}
 	if p.sort {
