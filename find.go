@@ -128,7 +128,7 @@ func Filter(p Param, in, out chan LinkedFeedItem, errChan chan error) {
 			out <- i
 			sent++
 		}
-		if sent > p.max {
+		if p.max != 0 && sent > p.max {
 			return
 		}
 	}
