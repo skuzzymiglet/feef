@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"text/template"
 	"time"
@@ -36,9 +37,11 @@ func main() {
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	cmd := flag.String("c", "", "execute command template for each item")
 	notify := flag.Bool("n", false, "print new items as they're published") // bad description lol
-	max := flag.Int("m", 100, "maximum items to output, 0 for no limit")
+	max := flag.Int("m", 0, "maximum items to output, 0 for no limit")
+	threads := flag.Int("p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads")
 	sort := flag.Bool("s", false, "sort by when published")
 	help := flag.Bool("h", false, "print help and exit")
+	notifPoll := flag.Duration("r", time.Second*10, "time between feed refreshes in notification mode")
 	flag.Parse()
 
 	if *help {
@@ -136,10 +139,10 @@ func main() {
 		items := make(chan LinkedFeedItem, 0)
 		if *notify {
 			ctx := context.Background()
-			go NotifyNew(ctx, NotifyParam{urls: urls, poll: time.Second * 10, maxDownload: 10}, items, errChan)
+			go NotifyNew(ctx, NotifyParam{urls: urls, poll: *notifPoll, maxDownload: *threads}, items, errChan)
 		} else {
 			go func() {
-				GetAll(p.urls, 10, items, errChan)
+				GetAll(p.urls, *threads, items, errChan)
 				close(items)
 			}()
 		}
