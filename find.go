@@ -78,9 +78,10 @@ func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errC
 	sema := make(chan struct{}, n.maxDownload)
 	for _, u := range n.urls {
 		// TODO: stagger refreshes to reduce semaphore contention,maybe
+		initial := true
+		var last LinkedFeed
 		go func(u string) {
 			for {
-				last := time.Now()
 				select {
 				case <-ctx.Done():
 					return
@@ -91,18 +92,24 @@ func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errC
 					if err != nil {
 						errChan <- err
 					}
-					for _, i := range lf.Items {
-						// Goddamn gofeed and nil pointers!
-						if i.PublishedParsed != nil {
-							// logrus.Infoln("checking", i.Title)
-							if last.Before(*i.PublishedParsed) { // It's new!
+					if initial { // Don't compare
+						last = lf
+						initial = false
+					} else {
+						for _, i := range lf.Items { // For each new...
+							matched := false
+							for _, j := range last.Items { // Compare each old
+								if i.GUID == j.GUID {
+									matched = true
+								}
+							}
+							if !matched {
 								out <- i
 							}
 						}
 					}
 					<-sema
 					time.Sleep(n.poll)
-					last = time.Now()
 				}
 			}
 		}(u)
