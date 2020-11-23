@@ -6,6 +6,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.6.0 // indirect
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/gobwas/glob v0.2.3
+	github.com/jarcoal/httpmock v1.0.6
 	github.com/mmcdole/gofeed v1.1.0
 	github.com/mmcdole/goxpp v0.0.0-20200921145534-2f3784f67354 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect

@@ -25,27 +25,34 @@ func printHelp() {
 	flag.PrintDefaults()
 }
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
-	// defaultTemplate := "{{.Title}}: {{.Link}} ({{.Feed.Title}})"
+	logrus.SetLevel(logrus.DebugLevel) // TODO: fully switch to logrus
+
 	var defaultUrlsFile string
 	cdir, err := os.UserConfigDir()
 	if err == nil {
 		defaultUrlsFile = filepath.Join(cdir, "feef", "urls")
 	}
+
 	defaultTemplate := "{{.GUID}}"
+
+	help := flag.Bool("h", false, "print help and exit")
+
 	urlsFile := flag.String("u", defaultUrlsFile, "file with newline delimited URLs")
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	cmd := flag.String("c", "", "execute command template for each item")
-	notify := flag.Bool("n", false, "print new items as they're published") // bad description lol
+
 	max := flag.Int("m", 0, "maximum items to output, 0 for no limit")
 	threads := flag.Int("p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads")
 	sort := flag.Bool("s", false, "sort by when published")
-	help := flag.Bool("h", false, "print help and exit")
+
+	notify := flag.Bool("n", false, "print new items as they're published")
 	notifPoll := flag.Duration("r", time.Second*10, "time between feed refreshes in notification mode")
+
 	flag.Parse()
 
 	if *help {
 		printHelp()
+		os.Exit()
 	}
 
 	// Parse output template
