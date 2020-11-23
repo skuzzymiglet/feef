@@ -93,7 +93,6 @@ func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errC
 						errChan <- err
 					}
 					if initial { // Don't compare
-						last = lf
 						initial = false
 					} else {
 						for _, i := range lf.Items { // For each new...
@@ -108,6 +107,7 @@ func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errC
 							}
 						}
 					}
+					last = lf
 					<-sema
 					time.Sleep(n.poll)
 				}
