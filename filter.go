@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gobwas/glob"
+	log "github.com/sirupsen/logrus"
 )
 
 const delim = "~" // TODO: make this configurable
@@ -24,13 +25,17 @@ type Param struct {
 func Filter(p Param, in, out chan LinkedFeedItem, errChan chan error) {
 	var buf []LinkedFeedItem
 	var sent int
-	for i := range in {
+	for i := range in { // TODO: more specific queries
 		matched := true
 		switch {
 		case p.item.Match(i.Link):
+			log.Debugf("item %s's link matched", i.GUID)
 		case p.item.Match(i.Title):
+			log.Debugf("item %s's title matched", i.GUID)
 		case (i.Author != nil && p.item.Match(i.Author.Name)):
+			log.Debugf("item %s's author name matched", i.GUID)
 		case (i.Author != nil && p.item.Match(i.Author.Email)):
+			log.Debugf("item %s's email matched", i.GUID)
 		default:
 			matched = false
 		}
@@ -45,6 +50,7 @@ func Filter(p Param, in, out chan LinkedFeedItem, errChan chan error) {
 		}
 	}
 	if p.sort {
+		log.Debugf("sorting %d items...", len(buf))
 		sort.Slice(buf, func(i, j int) bool {
 			var it, jt time.Time
 			if buf[i].PublishedParsed != nil {
