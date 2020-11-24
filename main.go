@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,7 +16,7 @@ import (
 	"time"
 
 	"github.com/gobwas/glob"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 func printHelp() {
@@ -25,7 +24,7 @@ func printHelp() {
 	flag.PrintDefaults()
 }
 func main() {
-	logrus.SetLevel(logrus.DebugLevel) // TODO: fully switch to logrus
+	log.SetLevel(log.DebugLevel) // TODO: fully switch to logrus
 
 	var defaultUrlsFile string
 	cdir, err := os.UserConfigDir()

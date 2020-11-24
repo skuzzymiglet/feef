@@ -28,6 +28,7 @@ func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errC
 					lf, err := Get(u)
 					if err != nil {
 						errChan <- err
+						continue
 					}
 					if initial { // Don't compare
 						initial = false
