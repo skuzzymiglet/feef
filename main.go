@@ -41,7 +41,7 @@ func main() {
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	cmd := flag.String("c", "", "execute command template for each item")
 
-	max := flag.Int("m", 0, "maximum items to output, 0 for no limit")
+	max := flag.Int("m", 0, "maximum items to output, 0 for no limit") // BUG: shows nothing. needs diagnosing
 	threads := flag.Int("p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads")
 	sort := flag.Bool("s", false, "sort by when published")
 
@@ -52,7 +52,7 @@ func main() {
 
 	if *help {
 		printHelp()
-		os.Exit()
+		os.Exit(0)
 	}
 
 	// Parse output template
@@ -186,9 +186,9 @@ func main() {
 				fmt.Printf("(ERROR)")
 			} else {
 				io.Copy(os.Stdout, &buf)
-				os.Stdout.Write([]byte("\n")) // Do we need to check this?
 				buf.Reset()
 			}
+			os.Stdout.Write([]byte("\n")) // Do we need to check this?
 		}
 	}
 }

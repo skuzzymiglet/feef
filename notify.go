@@ -1,4 +1,10 @@
 package main
+
+import (
+	"context"
+	"time"
+)
+
 type NotifyParam struct {
 	urls        []string
 	poll        time.Duration
