@@ -2,14 +2,18 @@
 
 feef prints and queries rss/atom/json feeds. It's very composable with other tools (through stdout)
 
+feef is currently pre-alpha and constantly evolving.
+
 # installation
 
 `go get -u -v git.sr.ht/~skuzzymiglet/feef`
 
-Put URLs you want to read in `.config/feef/urls` or wherever you put your configs. Alternatively, specify one with the `-u` flag.
+Put file with the URLs you want to read, one per line, in `.config/feef/urls` or wherever you put your configs. Alternatively, specify a URLs file with the `-u` flag.
 
-`feef` - prints GUID of every item of the feeds in urls
-`feef "*" "*git*"` - prints every item whose title/url matches the glob
+# usage
+
++ `feef` - prints GUID of every item in every feed in your URLs file
++ `feef "*" "*git*"` - prints every item whose title/url matches the glob
 
 # integration
 
@@ -24,9 +28,3 @@ feef -n -c "notify-send '{{.Feed.Title}}' '{{.Title}}'"
 # Download every Go Time episode
 feef -f "{{.PodcastDownload}}" "https://changelog.com/gotime/feed" "*" | xargs wget -nc
 ```
-
-# todo
-
-+ caching
-+ more detailed queries
-+ internal architecture cleanup
