@@ -24,7 +24,7 @@ func printHelp() {
 	flag.PrintDefaults()
 }
 func main() {
-	log.SetLevel(log.DebugLevel) // TODO: fully switch to logrus
+	log.SetLevel(log.DebugLevel)
 
 	var defaultUrlsFile string
 	cdir, err := os.UserConfigDir()
