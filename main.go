@@ -24,7 +24,7 @@ func printHelp() {
 	flag.PrintDefaults()
 }
 func main() {
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.InfoLevel)
 
 	var defaultUrlsFile string
 	cdir, err := os.UserConfigDir()
@@ -44,7 +44,7 @@ func main() {
 	threads := flag.Int("p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads")
 	sort := flag.Bool("s", false, "sort by when published")
 
-	notify := flag.Bool("n", false, "print new items as they're published")
+	notifyMode := flag.String("n", "none", "notification mode (none, new or all)")
 	notifPoll := flag.Duration("r", time.Second*10, "time between feed refreshes in notification mode")
 
 	flag.Parse()
@@ -143,14 +143,27 @@ func main() {
 	}
 	go func() {
 		items := make(chan LinkedFeedItem, 0)
-		if *notify {
+		if *notifyMode != "none" {
 			ctx := context.Background()
-			go NotifyNew(ctx, NotifyParam{urls: urls, poll: *notifPoll, maxDownload: *threads}, items, errChan)
+			p := NotifyParam{urls: urls, poll: *notifPoll, maxDownload: *threads}
+			switch *notifyMode {
+			case "new":
+				p.mode = newItems
+			case "all":
+				p.mode = allItems
+			default:
+				log.Fatalf("invalid notification mode %s", *notifyMode)
+			}
+			go NotifyNew(ctx, p, items, errChan)
 		} else {
 			go func() {
 				GetAll(p.urls, *threads, items, errChan)
 				close(items)
 			}()
+		}
+		if *notifyMode != "none" {
+			log.Warn("Sorting in notify mode blocks forever, disabling sorting")
+			p.sort = false // Sorting would block forever
 		}
 		Filter(p, items, results, errChan)
 		close(results)
