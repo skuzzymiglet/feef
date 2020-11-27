@@ -172,7 +172,7 @@ func main() {
 	for {
 		select {
 		case err := <-errChan:
-			log.Println(err)
+			log.Error(err)
 		case val, more := <-results:
 			if !more {
 				return
@@ -185,7 +185,7 @@ func main() {
 				if err != nil {
 					switch xe := err.(type) {
 					case *exec.ExitError:
-						log.Printf("error running command %s (%s)", xe, string(xe.Stderr))
+						log.Errorf("error running command %s (%s)", xe, string(xe.Stderr))
 					default:
 						log.Fatal(err)
 					}
@@ -194,7 +194,7 @@ func main() {
 			}
 			err := tmpl.Execute(&buf, val)
 			if err != nil {
-				log.Println("error executing template:", err)
+				log.Errorln("error executing template:", err)
 				fmt.Printf("(ERROR)")
 			} else {
 				io.Copy(os.Stdout, &buf)
