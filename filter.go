@@ -9,8 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const delim = "~" // TODO: make this configurable
-
 var ErrNotFound = errors.New("Feed item not found")
 
 // Param holds query parameters

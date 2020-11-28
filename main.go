@@ -23,6 +23,27 @@ func printHelp() {
 	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s: \n\n%s [format] [query]\n\n", os.Args[0], os.Args[0]) // TODO: make this tidier
 	flag.PrintDefaults()
 }
+
+var tmpl = template.New("output").
+	Funcs(map[string]interface{}{
+		"date": func(t time.Time) string {
+			return t.Format("January 2, 2006")
+		},
+		"format": func(fmt string, t time.Time) string {
+			return t.Format(fmt)
+		},
+	})
+
+var cmdTmpl = template.New("cmd").
+	Funcs(map[string]interface{}{
+		"date": func(t time.Time) string {
+			return t.Format("January 2, 2006")
+		},
+		"format": func(fmt string, t time.Time) string {
+			return t.Format(fmt)
+		},
+	})
+
 func main() {
 	log.SetLevel(log.InfoLevel)
 
@@ -55,31 +76,12 @@ func main() {
 	}
 
 	// Parse output template
-	tmpl, err := template.New("output").
-		Funcs(map[string]interface{}{
-			"date": func(t time.Time) string {
-				return t.Format("January 2, 2006")
-			},
-			"format": func(fmt string, t time.Time) string {
-				return t.Format(fmt)
-			},
-		}).
-		Parse(*templateString)
+	_, err = tmpl.Parse(*templateString)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var cmdTmpl *template.Template
 	if *cmd != "" {
-		cmdTmpl, err = template.New("cmd").
-			Funcs(map[string]interface{}{
-				"date": func(t time.Time) string {
-					return t.Format("January 2, 2006")
-				},
-				"format": func(fmt string, t time.Time) string {
-					return t.Format(fmt)
-				},
-			}).
-			Parse(*cmd)
+		_, err = cmdTmpl.Parse(*cmd)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -119,23 +121,6 @@ func main() {
 		p.feedURL = feedURL
 
 		item, err := glob.Compile(flag.Arg(1))
-		if err != nil {
-			log.Fatal("error compiling item glob: ", err)
-		}
-		p.item = item
-
-	case 1:
-		parts := strings.Split(flag.Arg(0), delim)
-		if len(parts) != 2 {
-			log.Fatalf("Not enought parts in query %s", flag.Arg(0))
-		}
-		feedURL, err := glob.Compile(parts[0])
-		if err != nil {
-			log.Fatal("error compiling feed URL glob: ", err)
-		}
-		p.feedURL = feedURL
-
-		item, err := glob.Compile(parts[1])
 		if err != nil {
 			log.Fatal("error compiling item glob: ", err)
 		}

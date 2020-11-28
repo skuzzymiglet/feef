@@ -45,7 +45,7 @@ func GetAll(urls []string, threads int, out chan LinkedFeedItem, errChan chan er
 				return
 			}
 			if lf.Feed.FeedLink != u {
-				log.Infof("feed request url and self-reference url mismatch: requested %s, got %s", u, lf.Feed.FeedLink)
+				log.Debugf("feed request url and self-reference url mismatch: requested %s, got %s", u, lf.Feed.FeedLink)
 			}
 			for _, i := range lf.Items {
 				log.Debugf("found new item in %s: %s", u, i.GUID)
