@@ -38,7 +38,7 @@ func GetAll(urls []string, threads int, out chan LinkedFeedItem, errChan chan er
 		go func(u string) {
 			defer wg.Done()
 			sema <- struct{}{}
-			log.Debugln("refreshing feed", u)
+			log.Infoln("Downloading feed", u)
 			lf, err := Get(u)
 			if err != nil {
 				errChan <- err

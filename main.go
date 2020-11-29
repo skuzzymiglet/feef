@@ -45,8 +45,6 @@ var cmdTmpl = template.New("cmd").
 	})
 
 func main() {
-	log.SetLevel(log.InfoLevel)
-
 	var defaultUrlsFile string
 	cdir, err := os.UserConfigDir()
 	if err == nil {
@@ -56,6 +54,8 @@ func main() {
 	defaultTemplate := "{{.GUID}}"
 
 	help := flag.Bool("h", false, "print help and exit")
+
+	logLevel := flag.String("l", "info", "log level")
 
 	urlsFile := flag.String("u", defaultUrlsFile, "file with newline delimited URLs")
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
@@ -69,6 +69,12 @@ func main() {
 	notifPoll := flag.Duration("r", time.Second*10, "time between feed refreshes in notification mode")
 
 	flag.Parse()
+
+	level, err := log.ParseLevel(*logLevel)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.SetLevel(level)
 
 	if *help {
 		printHelp()
