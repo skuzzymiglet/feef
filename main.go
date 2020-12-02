@@ -66,7 +66,7 @@ func main() {
 	sort := flag.Bool("s", false, "sort by when published")
 
 	notifyMode := flag.String("n", "none", "notification mode (none, new or all)")
-	notifPoll := flag.Duration("r", time.Second*10, "time between feed refreshes in notification mode")
+	notifPoll := flag.Duration("r", time.Second*30, "time between feed refreshes in notification mode")
 
 	flag.Parse()
 
