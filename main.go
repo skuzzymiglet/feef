@@ -64,13 +64,18 @@ func main() {
 
 	max := flag.Int("m", 0, "maximum items to output, 0 for no limit") // BUG: shows nothing. needs diagnosing
 	timeout := flag.Duration("t", time.Second*5, "feed-fetching timeout")
-	threads := flag.Int("p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads")
-	sort := flag.Bool("s", false, "sort by when published")
+	threads := flag.Int("p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads") // I'm not sure GOMAXPROCS is a reasonable default for this. Maybe we should set it to 1 for safety but that's slow
+	sort := flag.Bool("s", false, "sort feed items chronologically")
 
 	notifyMode := flag.String("n", "none", "notification mode (none, new or all)")
 	notifPoll := flag.Duration("r", 2*time.Minute, "time between feed refreshes in notification mode")
 
 	flag.Parse()
+
+	if *help {
+		printHelp()
+		os.Exit(0)
+	}
 
 	level, err := log.ParseLevel(*logLevel)
 	if err != nil {
@@ -78,26 +83,22 @@ func main() {
 	}
 	log.SetLevel(level)
 
-	if *help {
-		printHelp()
-		os.Exit(0)
-	}
-
 	// Parse output template
 	_, err = tmpl.Parse(*templateString)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error parsing template: %s", err)
 	}
 	if *cmd != "" {
 		_, err = cmdTmpl.Parse(*cmd)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("error parsing command template: %s", err)
 		}
 	}
 
 	// Get list of URLs
+	// TODO: perhaps we should scan every file under .config/feef/urls (directory), because people may want to separate youtube URLs from, say reddit
 	urls := make([]string, 0)
-	if *urlsFile != "" {
+	if *urlsFile != "" { // TODO: treatment of empty URLs parameter is a tad confusing
 		file, err := os.Open(*urlsFile)
 		if err != nil {
 			log.Fatal(err)
@@ -201,7 +202,7 @@ func main() {
 				if err != nil {
 					switch xe := err.(type) {
 					case *exec.ExitError:
-						log.Errorf("error running command %s (%s)", xe, string(xe.Stderr))
+						log.Errorf("error running command %s (%s)", xe, string(xe.Stderr)) // BUG: doesn't show stderr
 					default:
 						log.Fatal(err)
 					}

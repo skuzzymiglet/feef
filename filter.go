@@ -28,14 +28,14 @@ func Filter(p FilterParam, in, out chan LinkedFeedItem, errChan chan error) {
 		default:
 			matched = false
 		}
+		if p.max != 0 && sent >= p.max {
+			return
+		}
 		if p.sort {
 			buf = append(buf, i)
 		} else if matched {
 			out <- i
 			sent++
-		}
-		if p.max != 0 && sent > p.max {
-			return
 		}
 	}
 	if p.sort {
