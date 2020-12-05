@@ -4,25 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/mmcdole/gofeed"
 	log "github.com/sirupsen/logrus"
 )
 
-type NotifyMode int
-
-const (
-	newItems NotifyMode = iota
-	allItems
-)
-
-type NotifyParam struct {
-	urls        []string
-	mode        NotifyMode
-	poll        time.Duration
-	maxDownload int
-}
-
-func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errChan chan error) {
-	sema := make(chan struct{}, n.maxDownload)
+func Notify(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errChan chan error) {
+	sema := make(chan struct{}, n.maxThreads)
 	for _, u := range n.urls {
 		// When only showing new items, fetch the initial feed
 		// Othwerwise start with nothing
@@ -38,25 +25,23 @@ func NotifyNew(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errC
 				default:
 					sema <- struct{}{}
 					log.Debugln("refreshing", u)
-
-					// Issue a HEAD
-					// Check etag/last-modified
-					// Pass to parser
-					// LinkFeed
-					lf, err := Get(u) // TODO: refactor Get so we can issue a HEAD request for caching, then make a request with a context on a http client. Probably make it just parse a reader lol
+					parser := gofeed.NewParser() // lol race
+					resp, err := n.client.Get(u)
 					if err != nil {
 						errChan <- err
-						continue
+						return
 					}
+					f, err := parser.Parse(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						errChan <- err
+						return
+					}
+					lf := LinkFeed(f)
+					if lf.Feed.FeedLink != u {
+						log.Debugf("feed request url and self-reference url mismatch: requested %s, got %s", u, lf.Feed.FeedLink)
 
-					// 					if v, ok := lf.Headers["last-modified"]; ok {
-					// 						if t, err := time.Parse(time.RFC1123, v); err == nil {
-					// 							if t.Before(lastTime) { // No changes
-					// 								log.Debugln("")
-					// 								continue
-					// 							}
-					// 						}
-					// 					}
+					}
 					if initial { // Don't compare
 						initial = false
 					} else {

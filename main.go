@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -62,11 +63,12 @@ func main() {
 	cmd := flag.String("c", "", "execute command template for each item")
 
 	max := flag.Int("m", 0, "maximum items to output, 0 for no limit") // BUG: shows nothing. needs diagnosing
+	timeout := flag.Duration("t", time.Second*5, "feed-fetching timeout")
 	threads := flag.Int("p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads")
 	sort := flag.Bool("s", false, "sort by when published")
 
 	notifyMode := flag.String("n", "none", "notification mode (none, new or all)")
-	notifPoll := flag.Duration("r", time.Minute, "time between feed refreshes in notification mode")
+	notifPoll := flag.Duration("r", 2*time.Minute, "time between feed refreshes in notification mode")
 
 	flag.Parse()
 
@@ -108,58 +110,81 @@ func main() {
 		}
 		file.Close()
 	}
-	results := make(chan LinkedFeedItem, 100)
+	items := make(chan LinkedFeedItem)
+	results := make(chan LinkedFeedItem)
 	errChan := make(chan error)
 
-	p := Param{
-		max:     *max,
-		urls:    urls,
-		sort:    *sort,
-		item:    glob.MustCompile("*"),
-		feedURL: glob.MustCompile("*"),
-	}
-	switch flag.NArg() {
-	case 2:
-		feedURL, err := glob.Compile(flag.Arg(0))
-		if err != nil {
-			log.Fatal("error compiling feed URL glob: ", err)
-		}
-		p.feedURL = feedURL
+	ctx := context.Background()
 
+	// match urls with glob
+	globbedURLs := make([]string, 0)
+
+	var feedURL glob.Glob
+	if flag.Arg(0) != "" {
+		feedURL, err = glob.Compile(flag.Arg(0))
+		if err != nil {
+			log.Fatalf("error compiling feed glob: %s", err)
+		}
+	} else {
+		feedURL = glob.MustCompile("*")
+	}
+	for _, u := range urls {
+		if feedURL.Match(u) {
+			globbedURLs = append(globbedURLs, u)
+		}
+	}
+
+	p := GetParam{
+		client:     &http.Client{Timeout: *timeout},
+		maxThreads: *threads,
+		urls:       globbedURLs,
+	}
+	np := NotifyParam{
+		GetParam: p,
+		poll:     *notifPoll,
+	}
+
+	switch *notifyMode {
+	case "none":
+		go func() {
+			GetAll(ctx, p, items, errChan)
+			close(items)
+		}()
+	case "new":
+		np.mode = newItems
+		go func() {
+			Notify(ctx, np, items, errChan)
+			close(items)
+		}()
+	case "all":
+		np.mode = allItems
+		go func() {
+			Notify(ctx, np, items, errChan)
+			close(items)
+		}()
+	default:
+		log.Fatalf("Invalid notify mode %s", *notifyMode)
+	}
+
+	// filtering
+	fp := FilterParam{max: *max, sort: *sort, item: glob.MustCompile("*")}
+	if flag.Arg(1) != "" {
 		item, err := glob.Compile(flag.Arg(1))
 		if err != nil {
 			log.Fatal("error compiling item glob: ", err)
 		}
-		p.item = item
+		fp.item = item
+	}
+	if *notifyMode != "none" {
+		log.Warn("Sorting in notify mode blocks forever, disabling sorting")
+		fp.sort = false // Sorting would block forever
 	}
 	go func() {
-		items := make(chan LinkedFeedItem, 0)
-		if *notifyMode != "none" {
-			ctx := context.Background()
-			p := NotifyParam{urls: urls, poll: *notifPoll, maxDownload: *threads}
-			switch *notifyMode {
-			case "new":
-				p.mode = newItems
-			case "all":
-				p.mode = allItems
-			default:
-				log.Fatalf("invalid notification mode %s", *notifyMode)
-			}
-			go NotifyNew(ctx, p, items, errChan)
-		} else {
-			go func() {
-				GetAll(p.urls, *threads, items, errChan)
-				close(items)
-			}()
-		}
-		if *notifyMode != "none" {
-			log.Warn("Sorting in notify mode blocks forever, disabling sorting")
-			p.sort = false // Sorting would block forever
-		}
-		Filter(p, items, results, errChan)
+		Filter(fp, items, results, errChan)
 		close(results)
 	}()
-	var buf, cmdBuf bytes.Buffer
+
+	var buf, cmdBuf bytes.Buffer // Buffers, so we don't print partially executed, errored templates
 	for {
 		select {
 		case err := <-errChan:
