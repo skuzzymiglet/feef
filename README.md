@@ -2,7 +2,7 @@
 
 feef prints and queries rss/atom/json feeds. It's very composable with other tools (through stdout)
 
-feef is currently pre-alpha and constantly evolving.
+feef is currently pre-alpha and constantly evolving (and breaking)
 
 # installation
 

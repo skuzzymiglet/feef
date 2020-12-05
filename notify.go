@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/mmcdole/gofeed"
@@ -10,6 +11,7 @@ import (
 
 func Notify(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errChan chan error) {
 	sema := make(chan struct{}, n.maxThreads)
+	var wg sync.WaitGroup
 	for _, u := range n.urls {
 		// When only showing new items, fetch the initial feed
 		// Othwerwise start with nothing
@@ -17,7 +19,9 @@ func Notify(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errChan
 
 		var last LinkedFeed
 		// var lastTime time.Time // 0, initially download everything
+		wg.Add(1)
 		go func(u string) {
+			defer wg.Done()
 			for {
 				select {
 				case <-ctx.Done():
@@ -65,4 +69,5 @@ func Notify(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errChan
 			}
 		}(u)
 	}
+	wg.Wait()
 }

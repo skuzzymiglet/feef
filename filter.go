@@ -6,7 +6,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kr/pretty"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -48,7 +47,6 @@ func Filter(p FilterParam, in, out chan LinkedFeedItem, errChan chan error) {
 			} else if buf[i].UpdatedParsed != nil {
 				it = *buf[i].UpdatedParsed
 			} else {
-				pretty.Println(buf[i])
 				panic(fmt.Sprintf("error sorting feed (from %s): item does not include an update or published time", buf[i].Feed.FeedLink))
 			}
 			if buf[j].PublishedParsed != nil {
@@ -56,7 +54,6 @@ func Filter(p FilterParam, in, out chan LinkedFeedItem, errChan chan error) {
 			} else if buf[j].UpdatedParsed != nil {
 				jt = *buf[j].UpdatedParsed
 			} else {
-				pretty.Println(buf[j])
 				panic(fmt.Sprintf("error sorting feed (from %s): item does not include an update or published time", buf[j].Feed.FeedLink))
 			}
 			return jt.Before(it) // Newest first, so comparator is upside-down
