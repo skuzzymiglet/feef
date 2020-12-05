@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func GetAll(ctx context.Context, p GetParam, out chan LinkedFeedItem, errChan chan error) {
+func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan chan error) {
 	sema := make(chan struct{}, p.maxThreads)
 	// Send work down a channel
 	var wg sync.WaitGroup

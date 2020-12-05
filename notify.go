@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Notify(ctx context.Context, n NotifyParam, out chan LinkedFeedItem, errChan chan error) {
+func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errChan chan error) {
 	sema := make(chan struct{}, n.maxThreads)
 	var wg sync.WaitGroup
 	for _, u := range n.urls {

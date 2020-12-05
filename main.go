@@ -148,7 +148,7 @@ func main() {
 	switch *notifyMode {
 	case "none":
 		go func() {
-			GetAll(ctx, p, items, errChan)
+			Get(ctx, p, items, errChan)
 			close(items)
 		}()
 	case "new":
