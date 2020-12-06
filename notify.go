@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -13,14 +14,15 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 	sema := make(chan struct{}, n.maxThreads)
 	var wg sync.WaitGroup
 	for _, u := range n.urls {
+		// TODO: don't download feeds if they weren't modified.
 		// When only showing new items, fetch the initial feed
 		// Othwerwise start with nothing
 		initial := n.mode == newItems
 
 		var last LinkedFeed
-		// var lastTime time.Time // 0, initially download everything
 		wg.Add(1)
 		go func(u string) {
+			parser := gofeed.NewParser() // lol race
 			defer wg.Done()
 			for {
 				select {
@@ -29,23 +31,25 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 				default:
 					sema <- struct{}{}
 					log.Debugln("refreshing", u)
-					parser := gofeed.NewParser() // lol race
 					resp, err := n.client.Get(u)
 					if err != nil {
-						errChan <- err
+						errChan <- fmt.Errorf("error fetching %s: %w", u, err)
 						return
 					}
-					f, err := parser.Parse(resp.Body)
+
+					feed, err := parser.Parse(resp.Body)
 					resp.Body.Close()
 					if err != nil {
-						errChan <- err
+						errChan <- fmt.Errorf("error parsing %s: %w", u, err)
 						return
 					}
-					lf := LinkFeed(f)
+
+					lf := LinkFeed(feed)
 					if lf.Feed.FeedLink != u {
 						log.Debugf("feed request url and self-reference url mismatch: requested %s, got %s", u, lf.Feed.FeedLink)
 
 					}
+
 					if initial { // Don't compare
 						initial = false
 					} else {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/mmcdole/gofeed"
@@ -18,17 +19,17 @@ func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan cha
 		go func(u string) {
 			defer wg.Done()
 			sema <- struct{}{}
-			log.Infoln("Downloading feed", u)
-			parser := gofeed.NewParser() // lol race
+			log.Infoln("Fetching feed", u) // TODO: nicer progress?
+			parser := gofeed.NewParser()   // lol race
 			resp, err := p.client.Get(u)
 			if err != nil {
-				errChan <- err
+				errChan <- fmt.Errorf("Error fetching %s : %w", u, err)
 				return
 			}
 			f, err := parser.Parse(resp.Body)
 			resp.Body.Close()
 			if err != nil {
-				errChan <- err
+				errChan <- fmt.Errorf("Error parsing %s : %w", u, err)
 				return
 			}
 			lf := LinkFeed(f)
