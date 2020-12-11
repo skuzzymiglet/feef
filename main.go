@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -21,29 +23,26 @@ import (
 )
 
 func printHelp() {
-	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s: \n\n%s [format] [query]\n\n", os.Args[0], os.Args[0]) // TODO: make this tidier
+	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s: \n\n%s [feed URL glob] [item glob]\n\n", os.Args[0], os.Args[0]) // TODO: make this tidier
 	flag.PrintDefaults()
 }
 
+var defaultFuncMap = map[string]interface{}{
+	"date": func(t time.Time) string {
+		return t.Format("January 2, 2006")
+	},
+	"format": func(fmt string, t time.Time) string {
+		return t.Format(fmt)
+	},
+}
+
 var tmpl = template.New("output").
-	Funcs(map[string]interface{}{
-		"date": func(t time.Time) string {
-			return t.Format("January 2, 2006")
-		},
-		"format": func(fmt string, t time.Time) string {
-			return t.Format(fmt)
-		},
-	})
+	Funcs(defaultFuncMap)
 
 var cmdTmpl = template.New("cmd").
-	Funcs(map[string]interface{}{
-		"date": func(t time.Time) string {
-			return t.Format("January 2, 2006")
-		},
-		"format": func(fmt string, t time.Time) string {
-			return t.Format(fmt)
-		},
-	})
+	Funcs(defaultFuncMap)
+
+var defaultTemplate = "{{.GUID}}"
 
 func main() {
 	var defaultUrlsFile string
@@ -51,8 +50,6 @@ func main() {
 	if err == nil {
 		defaultUrlsFile = filepath.Join(cdir, "feef", "urls")
 	}
-
-	defaultTemplate := "{{.GUID}}"
 
 	help := flag.Bool("h", false, "print help and exit")
 
@@ -62,9 +59,10 @@ func main() {
 	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
 	cmd := flag.String("c", "", "execute command template for each item")
 
-	max := flag.Int("m", 0, "maximum items to output, 0 for no limit") // BUG: shows nothing. needs diagnosing
+	max := flag.Int("m", 0, "maximum items to output, 0 for no limit")
 	timeout := flag.Duration("t", time.Second*5, "feed-fetching timeout")
-	threads := flag.Int("p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads") // I'm not sure GOMAXPROCS is a reasonable default for this. Maybe we should set it to 1 for safety but that's slow
+	// I'm not sure GOMAXPROCS is a reasonable default for this. Maybe we should set it to 1 for safety but that's slow
+	threads := flag.Int("p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads")
 	sort := flag.Bool("s", false, "sort feed items chronologically")
 
 	notifyMode := flag.String("n", "none", "notification mode (none, new or all)")
@@ -96,49 +94,52 @@ func main() {
 	}
 
 	// Get list of URLs
-	// TODO: perhaps we should scan every file under .config/feef/urls (directory), because people may want to separate youtube URLs from, say reddit
+	/*
+	   TODO: perhaps we should scan every file under .config/feef/urls (directory)
+	   people may want to separate youtube URLs from, say reddit
+	*/
 	urls := make([]string, 0)
-	if *urlsFile != "" { // TODO: treatment of empty URLs parameter is a tad confusing
-		file, err := os.Open(*urlsFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			if !strings.HasPrefix(scanner.Text(), "#") {
-				urls = append(urls, scanner.Text())
+	if u, err := url.ParseRequestURI(flag.Arg(0)); err == nil && u.Scheme != "" { // URL, exact
+		urls = []string{flag.Arg(0)}
+	} else {
+		var feedURL glob.Glob
+		if flag.Arg(0) != "" {
+			feedURL, err = glob.Compile(flag.Arg(0))
+			if err != nil {
+				log.Fatalf("error compiling feed glob: %s", err)
 			}
+		} else {
+			feedURL = glob.MustCompile("*")
 		}
-		file.Close()
+		if *urlsFile != "" { // TODO: treatment of empty URLs parameter is a tad confusing
+			file, err := os.Open(*urlsFile)
+			if err != nil {
+				log.Fatal(err)
+			}
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				if strings.TrimSpace(scanner.Text()) != "" {
+					if !strings.HasPrefix(scanner.Text(), "#") {
+						if feedURL.Match(scanner.Text()) {
+							urls = append(urls, scanner.Text())
+						}
+					}
+				}
+			}
+			file.Close()
+		}
 	}
+
 	items := make(chan LinkedFeedItem)
 	results := make(chan LinkedFeedItem)
 	errChan := make(chan error)
 
-	ctx := context.Background()
-
-	// match urls with glob
-	globbedURLs := make([]string, 0)
-
-	var feedURL glob.Glob
-	if flag.Arg(0) != "" {
-		feedURL, err = glob.Compile(flag.Arg(0))
-		if err != nil {
-			log.Fatalf("error compiling feed glob: %s", err)
-		}
-	} else {
-		feedURL = glob.MustCompile("*")
-	}
-	for _, u := range urls {
-		if feedURL.Match(u) {
-			globbedURLs = append(globbedURLs, u)
-		}
-	}
+	ctx, cancel := context.WithCancel(context.Background())
 
 	p := GetParam{
 		client:     &http.Client{Timeout: *timeout},
 		maxThreads: *threads,
-		urls:       globbedURLs,
+		urls:       urls,
 	}
 	np := NotifyParam{
 		GetParam: p,
@@ -185,9 +186,15 @@ func main() {
 		close(results)
 	}()
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, die...)
+
 	var buf, cmdBuf bytes.Buffer // Buffers, so we don't print partially executed, errored templates
 	for {
 		select {
+		case s := <-c:
+			log.Fatalf("Got signal: %s", s)
+			cancel()
 		case err := <-errChan:
 			log.Error(err)
 		case val, more := <-results:
@@ -217,7 +224,7 @@ func main() {
 				io.Copy(os.Stdout, &buf)
 				buf.Reset()
 			}
-			os.Stdout.Write([]byte("\n")) // Do we need to check this?
+			fmt.Println()
 		}
 	}
 }

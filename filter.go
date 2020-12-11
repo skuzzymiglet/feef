@@ -1,15 +1,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 )
-
-var ErrNotFound = errors.New("Feed item not found")
 
 func Filter(p FilterParam, in, out chan LinkedFeedItem, errChan chan error) {
 	var buf []LinkedFeedItem
