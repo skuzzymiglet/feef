@@ -47,7 +47,6 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 					lf := LinkFeed(feed)
 					if lf.Feed.FeedLink != u {
 						log.Debugf("feed request url and self-reference url mismatch: requested %s, got %s", u, lf.Feed.FeedLink)
-
 					}
 
 					if initial { // Don't compare

@@ -20,11 +20,13 @@ type GetParam struct {
 	urls       []string
 	maxThreads int
 }
+
 type NotifyParam struct {
 	GetParam
 	mode NotifyMode
 	poll time.Duration
 }
+
 type FilterParam struct {
 	max int
 	// urls    []string
