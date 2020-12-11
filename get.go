@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/mmcdole/gofeed"
@@ -10,6 +12,7 @@ import (
 )
 
 func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan chan error) {
+	// TODO: significant code duplication between get.go and notify.go. Needs to be cleaned up for maintainability
 	sema := make(chan struct{}, p.maxThreads)
 	// Send work down a channel
 	var wg sync.WaitGroup
@@ -21,7 +24,13 @@ func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan cha
 			sema <- struct{}{}
 			log.Infoln("Fetching feed", u) // TODO: nicer progress?
 			parser := gofeed.NewParser()   // lol race
-			resp, err := p.client.Get(u)
+			var body bytes.Reader
+			req, err := http.NewRequestWithContext(ctx, "GET", u, &body)
+			if err != nil {
+				errChan <- fmt.Errorf("Error creating request for %s : %w", u, err)
+				return
+			}
+			resp, err := p.client.Do(req)
 			if err != nil {
 				errChan <- fmt.Errorf("Error fetching %s : %w", u, err)
 				return

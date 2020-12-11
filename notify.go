@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -31,9 +33,15 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 				default:
 					sema <- struct{}{}
 					log.Debugln("refreshing", u)
-					resp, err := n.client.Get(u)
+					var body bytes.Reader
+					req, err := http.NewRequestWithContext(ctx, "GET", u, &body)
 					if err != nil {
-						errChan <- fmt.Errorf("error fetching %s: %w", u, err)
+						errChan <- fmt.Errorf("Error creating request for %s : %w", u, err)
+						return
+					}
+					resp, err := n.client.Do(req)
+					if err != nil {
+						errChan <- fmt.Errorf("Error fetching %s : %w", u, err)
 						return
 					}
 
