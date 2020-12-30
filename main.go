@@ -1,10 +1,13 @@
 package main
 
+/*
+NOTE: main.go is really complex
+Target: reduce it too 100ish lines by v1
+*/
+
 import (
-	"bufio"
 	"bytes"
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,16 +17,18 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"text/template"
 	"time"
+
+	flag "github.com/spf13/pflag"
 
 	"github.com/gobwas/glob"
 	log "github.com/sirupsen/logrus"
 )
 
+// Arg 1/2 is kinda buggy. Maybe just relegate them to options
 func printHelp() {
-	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s: \n\n%s [feed URL glob] [item glob]\n\n", os.Args[0], os.Args[0]) // TODO: make this tidier
+	fmt.Fprintf(os.Stderr, "Usage of %s: \n\n%s [feed URL glob] [item glob]\n\n", os.Args[0], os.Args[0]) // TODO: make this tidier
 	flag.PrintDefaults()
 }
 
@@ -51,52 +56,62 @@ func main() {
 		defaultUrlsFile = filepath.Join(cdir, "feef", "urls")
 	}
 
-	help := flag.Bool("h", false, "print help and exit")
-
-	logLevel := flag.String("l", "info", "log level")
-
-	urlsFile := flag.String("u", defaultUrlsFile, "file with newline delimited URLs")
-	templateString := flag.String("f", defaultTemplate, "output template for each feed item")
-	cmd := flag.String("c", "", "execute command template for each item")
-
-	max := flag.Int("m", 0, "maximum items to output, 0 for no limit")
-	timeout := flag.Duration("t", time.Second*5, "feed-fetching timeout")
-	// I'm not sure GOMAXPROCS is a reasonable default for this. Maybe we should set it to 1 for safety but that's slow
-	threads := flag.Int("p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads")
-	sort := flag.Bool("s", false, "sort feed items chronologically")
-
-	notifyMode := flag.String("n", "none", "notification mode (none, new or all)")
-	notifPoll := flag.Duration("r", 2*time.Minute, "time between feed refreshes in notification mode")
+	// Names and stuff are a bit iffy here
+	var (
+		help           bool
+		logLevel       string
+		urlsFile       string
+		templateString string
+		cmd            string
+		max            int
+		timeout        time.Duration
+		threads        int
+		sort           bool
+		notifyMode     string
+		notifyPoll     time.Duration
+	)
+	flag.BoolVarP(&help, "help", "h", false, "print help and exit")
+	flag.StringVarP(&logLevel, "loglevel", "l", "info", "log level")
+	flag.StringVarP(&urlsFile, "url-file", "u", defaultUrlsFile, "file with newline delimited URLs")
+	flag.StringVarP(&templateString, "template", "f", defaultTemplate, "output template for each feed item")
+	flag.StringVarP(&cmd, "exec", "c", "", "execute command template for each item")
+	flag.IntVarP(&max, "max", "m", 0, "maximum items to output, 0 for no limit")
+	flag.DurationVarP(&timeout, "timeout", "t", time.Second*5, "feed-fetching timeout")
+	flag.IntVarP(&threads, "download-threads", "p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads") // NOTE: I'm not sure GOMAXPROCS is a reasonable default for this. Maybe we should set it to 1 for safety but that's slow
+	flag.BoolVarP(&sort, "sort", "s", false, "sort feed items chronologically")
+	flag.StringVarP(&notifyMode, "notify-mode", "n", "none", "notification mode (none, new or all)")
+	flag.DurationVarP(&notifyPoll, "notify-poll-time", "r", 2*time.Minute, "time between feed refreshes in notification mode")
 
 	flag.Parse()
 
-	if *help {
+	if help {
 		printHelp()
 		os.Exit(0)
 	}
 
-	level, err := log.ParseLevel(*logLevel)
+	level, err := log.ParseLevel(logLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.SetLevel(level)
 
 	// Parse output template
-	_, err = tmpl.Parse(*templateString)
+	_, err = tmpl.Parse(templateString)
 	if err != nil {
 		log.Fatalf("error parsing template: %s", err)
 	}
-	if *cmd != "" {
-		_, err = cmdTmpl.Parse(*cmd)
+	if cmd != "" {
+		_, err = cmdTmpl.Parse(cmd)
 		if err != nil {
-			log.Fatal("error parsing command template: %s", err)
+			log.Fatalf("error parsing command template: %s", err)
 		}
 	}
 
 	// Get list of URLs
 	/*
-	   TODO: perhaps we should scan every file under .config/feef/urls (directory)
-	   people may want to separate youtube URLs from, say reddit
+			   TODO: perhaps we should scan every file under .config/feef/urls (directory)
+			   people may want to separate youtube URLs from, say reddit
+		       TODO: fetch newly added feed URLs (fsnotify)
 	*/
 	urls := make([]string, 0)
 	if u, err := url.ParseRequestURI(flag.Arg(0)); err == nil && u.Scheme != "" { // URL, exact
@@ -111,42 +126,37 @@ func main() {
 		} else {
 			feedURL = glob.MustCompile("*")
 		}
-		if *urlsFile != "" { // TODO: treatment of empty URLs parameter is a tad confusing
-			file, err := os.Open(*urlsFile)
+		if urlsFile != "" { // TODO: treatment of empty URLs parameter is a tad confusing
+			file, err := os.Open(urlsFile)
 			if err != nil {
 				log.Fatal(err)
 			}
-			scanner := bufio.NewScanner(file)
-			for scanner.Scan() {
-				if strings.TrimSpace(scanner.Text()) != "" {
-					if !strings.HasPrefix(scanner.Text(), "#") {
-						if feedURL.Match(scanner.Text()) {
-							urls = append(urls, scanner.Text())
-						}
-					}
+			for _, v := range parseURLs(file) {
+				if feedURL.Match(v) {
+					urls = append(urls, v)
 				}
 			}
 			file.Close()
 		}
 	}
 
-	items := make(chan LinkedFeedItem)
-	results := make(chan LinkedFeedItem)
-	errChan := make(chan error)
+	items := make(chan LinkedFeedItem, 1)
+	results := make(chan LinkedFeedItem, 1)
+	errChan := make(chan error, 1)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	p := GetParam{
-		client:     &http.Client{Timeout: *timeout},
-		maxThreads: *threads,
+		client:     &http.Client{Timeout: timeout}, // this is deprecated, TODO use context, I think
+		maxThreads: threads,
 		urls:       urls,
 	}
 	np := NotifyParam{
 		GetParam: p,
-		poll:     *notifPoll,
+		poll:     notifyPoll,
 	}
 
-	switch *notifyMode {
+	switch notifyMode {
 	case "none":
 		go func() {
 			Get(ctx, p, items, errChan)
@@ -165,11 +175,12 @@ func main() {
 			close(items)
 		}()
 	default:
-		log.Fatalf("Invalid notify mode %s", *notifyMode)
+		log.Fatalf("Invalid notify mode %s", notifyMode)
 	}
 
 	// filtering
-	fp := FilterParam{max: *max, sort: *sort, item: glob.MustCompile("*")}
+	// TODO: flexible filtering with expr
+	fp := FilterParam{max: max, sort: sort, item: glob.MustCompile("*")}
 	if flag.Arg(1) != "" {
 		item, err := glob.Compile(flag.Arg(1))
 		if err != nil {
@@ -177,7 +188,7 @@ func main() {
 		}
 		fp.item = item
 	}
-	if *notifyMode != "none" {
+	if notifyMode != "none" {
 		log.Warn("Sorting in notify mode blocks forever, disabling sorting")
 		fp.sort = false // Sorting would block forever
 	}
@@ -187,21 +198,22 @@ func main() {
 	}()
 
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, die...)
+	signal.Notify(c, die...) // BUG: SIGPIPEs are not handled in notify new mode (strange)
 
 	var buf, cmdBuf bytes.Buffer // Buffers, so we don't print partially executed, errored templates
 	for {
 		select {
 		case s := <-c:
-			log.Fatalf("Got signal: %s", s)
+			log.Errorf("Got signal: %s, cancelling", s)
 			cancel()
+			os.Exit(1)
 		case err := <-errChan:
 			log.Error(err)
 		case val, more := <-results:
 			if !more {
 				return
 			}
-			if *cmd != "" {
+			if cmd != "" {
 				cmdTmpl.Execute(&cmdBuf, val)
 				cmd := exec.Command("sh", "-c", string(cmdBuf.Bytes()))
 				cmd.Stdout = os.Stdout
@@ -224,7 +236,7 @@ func main() {
 				io.Copy(os.Stdout, &buf)
 				buf.Reset()
 			}
-			fmt.Println()
+			fmt.Println() // TODO: let template choose newline. but kinda eh
 		}
 	}
 }
