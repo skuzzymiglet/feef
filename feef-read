@@ -1,0 +1,8 @@
+#!/bin/sh
+
+set -e
+
+FMT="{{.Feed.Title}}: {{.Title}} @ {{.Link}} ({{.GUID}})"
+ITEMS="feef -s -p 10 -f '$FMT'"
+NEW="feef -n new -r 2m -f '+ $FMT'"
+sh -c "($ITEMS && $NEW) | fzf --bind 'enter:execute(cut -d@ -f2- <<< {} | xargs open),tab:toggle-sort,ctrl-d:execute(cut -d@ -f2- <<< {} | xargs download)'"
