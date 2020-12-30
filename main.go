@@ -26,12 +26,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Arg 1/2 is kinda buggy. Maybe just relegate them to options
-func printHelp() {
-	fmt.Fprintf(os.Stderr, "Usage of %s: \n\n%s [feed URL glob] [item glob]\n\n", os.Args[0], os.Args[0]) // TODO: make this tidier
-	flag.PrintDefaults()
-}
-
 var defaultFuncMap = map[string]interface{}{
 	"date": func(t time.Time) string {
 		return t.Format("January 2, 2006")
@@ -69,10 +63,13 @@ func main() {
 		sort           bool
 		notifyMode     string
 		notifyPoll     time.Duration
+
+		urlGlob  string
+		itemGlob string
 	)
 	flag.BoolVarP(&help, "help", "h", false, "print help and exit")
 	flag.StringVarP(&logLevel, "loglevel", "l", "info", "log level")
-	flag.StringVarP(&urlsFile, "url-file", "u", defaultUrlsFile, "file with newline delimited URLs")
+	flag.StringVarP(&urlsFile, "url-file", "U", defaultUrlsFile, "file with newline delimited URLs")
 	flag.StringVarP(&templateString, "template", "f", defaultTemplate, "output template for each feed item")
 	flag.StringVarP(&cmd, "exec", "c", "", "execute command template for each item")
 	flag.IntVarP(&max, "max", "m", 0, "maximum items to output, 0 for no limit")
@@ -82,10 +79,13 @@ func main() {
 	flag.StringVarP(&notifyMode, "notify-mode", "n", "none", "notification mode (none, new or all)")
 	flag.DurationVarP(&notifyPoll, "notify-poll-time", "r", 2*time.Minute, "time between feed refreshes in notification mode")
 
+	flag.StringVarP(&urlGlob, "url-glob", "u", "*", "URL glob")
+	flag.StringVarP(&itemGlob, "item-glob", "i", "*", "item glob")
+
 	flag.Parse()
 
 	if help {
-		printHelp()
+		flag.Usage()
 		os.Exit(0)
 	}
 
@@ -114,12 +114,12 @@ func main() {
 		       TODO: fetch newly added feed URLs (fsnotify)
 	*/
 	urls := make([]string, 0)
-	if u, err := url.ParseRequestURI(flag.Arg(0)); err == nil && u.Scheme != "" { // URL, exact
+	if u, err := url.ParseRequestURI(urlGlob); err == nil && u.Scheme != "" { // URL, exact
 		urls = []string{flag.Arg(0)}
 	} else {
 		var feedURL glob.Glob
 		if flag.Arg(0) != "" {
-			feedURL, err = glob.Compile(flag.Arg(0))
+			feedURL, err = glob.Compile(urlGlob)
 			if err != nil {
 				log.Fatalf("error compiling feed glob: %s", err)
 			}
@@ -156,6 +156,7 @@ func main() {
 		poll:     notifyPoll,
 	}
 
+	// TODO: notifymode struct, which satisfies flag.Value
 	switch notifyMode {
 	case "none":
 		go func() {
@@ -181,13 +182,13 @@ func main() {
 	// filtering
 	// TODO: flexible filtering with expr
 	fp := FilterParam{max: max, sort: sort, item: glob.MustCompile("*")}
-	if flag.Arg(1) != "" {
-		item, err := glob.Compile(flag.Arg(1))
-		if err != nil {
-			log.Fatal("error compiling item glob: ", err)
-		}
-		fp.item = item
+
+	item, err := glob.Compile(itemGlob)
+	if err != nil {
+		log.Fatal("error compiling item glob: ", err)
 	}
+	fp.item = item
+
 	if notifyMode != "none" {
 		log.Warn("Sorting in notify mode blocks forever, disabling sorting")
 		fp.sort = false // Sorting would block forever
