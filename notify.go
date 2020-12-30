@@ -60,16 +60,16 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 					if initial { // Don't compare
 						initial = false
 					} else {
-						for _, i := range lf.Items { // For each new...
-							matched := false
-							for _, j := range last.Items { // Compare each old
-								if i.GUID == j.GUID {
-									matched = true
-								}
+						if len(lf.Items) > len(last.Items) {
+							tmp := make(map[LinkedFeedItem]struct{}, len(lf.Items))
+
+							for _, i := range last.Items {
+								tmp[i] = struct{}{}
 							}
-							if !matched {
-								log.Debugf("found new item %s", i.GUID)
-								out <- i
+							for _, i := range lf.Items { // For each new...
+								if _, found := tmp[i]; !found {
+									out <- i
+								}
 							}
 						}
 					}
