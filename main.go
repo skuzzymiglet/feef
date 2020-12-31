@@ -17,7 +17,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"text/template"
+	"strings"
 	"time"
 
 	flag "github.com/spf13/pflag"
@@ -26,23 +26,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var defaultFuncMap = map[string]interface{}{
-	"date": func(t time.Time) string {
-		return t.Format("January 2, 2006")
-	},
-	"format": func(fmt string, t time.Time) string {
-		return t.Format(fmt)
-	},
-}
-
-var tmpl = template.New("output").
-	Funcs(defaultFuncMap)
-
-var cmdTmpl = template.New("cmd").
-	Funcs(defaultFuncMap)
-
-var defaultTemplate = "{{.GUID}}"
-
 func main() {
 	var defaultUrlsFile string
 	cdir, err := os.UserConfigDir()
@@ -50,7 +33,7 @@ func main() {
 		defaultUrlsFile = filepath.Join(cdir, "feef", "urls")
 	}
 
-	// Names and stuff are a bit iffy here
+	// Names and stuff are a bit inconsistent here
 	var (
 		help           bool
 		logLevel       string
@@ -64,7 +47,7 @@ func main() {
 		notifyMode     string
 		notifyPoll     time.Duration
 
-		urlGlob  string
+		urlGlobs []string
 		itemGlob string
 	)
 	flag.BoolVarP(&help, "help", "h", false, "print help and exit")
@@ -79,7 +62,7 @@ func main() {
 	flag.StringVarP(&notifyMode, "notify-mode", "n", "none", "notification mode (none, new or all)")
 	flag.DurationVarP(&notifyPoll, "notify-poll-time", "r", 2*time.Minute, "time between feed refreshes in notification mode")
 
-	flag.StringVarP(&urlGlob, "url-glob", "u", "*", "URL glob")
+	flag.StringSliceVarP(&urlGlobs, "url-glob", "u", []string{"*"}, "URLs or URL globs matched against URLs file")
 	flag.StringVarP(&itemGlob, "item-glob", "i", "*", "item glob")
 
 	flag.Parse()
@@ -114,29 +97,34 @@ func main() {
 		       TODO: fetch newly added feed URLs (fsnotify)
 	*/
 	urls := make([]string, 0)
-	if u, err := url.ParseRequestURI(urlGlob); err == nil && u.Scheme != "" { // URL, exact
-		urls = []string{flag.Arg(0)}
-	} else {
-		var feedURL glob.Glob
-		if flag.Arg(0) != "" {
+	var urlsFileURLs []string
+	if urlsFile != "" { // TODO: treatment of empty URLs parameter is a tad confusing
+
+		file, err := os.Open(urlsFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		urlsFileURLs = parseURLs(file)
+		file.Close()
+	}
+	for _, urlGlob := range urlGlobs {
+		if u, err := url.ParseRequestURI(urlGlob); err == nil && u.Scheme != "" { // URL provided is exact, no matching needed
+			urls = append(urls, urlGlob)
+		} else {
+			if len(urlsFileURLs) == 0 {
+				log.Fatalf("URL glob '%s' provided but no URLs to match against", urlGlob)
+			}
+			var feedURL glob.Glob
 			feedURL, err = glob.Compile(urlGlob)
 			if err != nil {
 				log.Fatalf("error compiling feed glob: %s", err)
 			}
-		} else {
-			feedURL = glob.MustCompile("*")
-		}
-		if urlsFile != "" { // TODO: treatment of empty URLs parameter is a tad confusing
-			file, err := os.Open(urlsFile)
-			if err != nil {
-				log.Fatal(err)
-			}
-			for _, v := range parseURLs(file) {
+			for _, v := range urlsFileURLs {
 				if feedURL.Match(v) {
 					urls = append(urls, v)
 				}
 			}
-			file.Close()
+
 		}
 	}
 
@@ -201,7 +189,12 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, die...) // BUG: SIGPIPEs are not handled in notify new mode (strange)
 
-	var buf, cmdBuf bytes.Buffer // Buffers, so we don't print partially executed, errored templates
+	var (
+		// stdout is bytes, only io.Copy is used
+		buf bytes.Buffer // Buffers, so we don't print partially executed, errored templates
+		// command is string, only every read as string
+		cmdBuf strings.Builder
+	)
 	for {
 		select {
 		case s := <-c:
@@ -216,13 +209,14 @@ func main() {
 			}
 			if cmd != "" {
 				cmdTmpl.Execute(&cmdBuf, val)
-				cmd := exec.Command("sh", "-c", string(cmdBuf.Bytes()))
+				cmd := exec.Command("sh", "-c", cmdBuf.String())
 				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
 				err := cmd.Run()
 				if err != nil {
-					switch xe := err.(type) {
+					switch exitError := err.(type) {
 					case *exec.ExitError:
-						log.Errorf("error running command %s (%s)", xe, string(xe.Stderr)) // BUG: doesn't show stderr
+						log.Errorf("error running command %s: %s", cmdBuf.String(), exitError)
 					default:
 						log.Fatal(err)
 					}
