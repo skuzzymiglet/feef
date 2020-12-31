@@ -12,6 +12,23 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func findNewItems(oldFeed, newFeed LinkedFeed) []LinkedFeedItem {
+	var buf []LinkedFeedItem
+	if len(newFeed.Items) > len(oldFeed.Items) {
+		tmp := make(map[LinkedFeedItem]struct{}, len(newFeed.Items))
+
+		for _, i := range oldFeed.Items {
+			tmp[i] = struct{}{}
+		}
+		for _, i := range newFeed.Items { // For each new...
+			if _, found := tmp[i]; !found {
+				buf = append(buf, i)
+			}
+		}
+	}
+	return buf
+}
+
 func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errChan chan error) {
 	sema := make(chan struct{}, n.maxThreads)
 	var wg sync.WaitGroup
@@ -31,7 +48,7 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 				case <-ctx.Done():
 					return
 				default:
-					sema <- struct{}{}
+
 					log.Debugln("refreshing", u)
 					var body bytes.Reader
 					req, err := http.NewRequestWithContext(ctx, "GET", u, &body)
@@ -39,6 +56,7 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 						errChan <- fmt.Errorf("Error creating request for %s : %w", u, err)
 						return
 					}
+					sema <- struct{}{}
 					resp, err := n.client.Do(req)
 					if err != nil {
 						errChan <- fmt.Errorf("Error fetching %s : %w", u, err)
@@ -47,6 +65,7 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 
 					feed, err := parser.Parse(resp.Body)
 					resp.Body.Close()
+					<-sema
 					if err != nil {
 						errChan <- fmt.Errorf("error parsing %s: %w", u, err)
 						return
@@ -60,22 +79,14 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 					if initial { // Don't compare
 						initial = false
 					} else {
-						if len(lf.Items) > len(last.Items) {
-							tmp := make(map[LinkedFeedItem]struct{}, len(lf.Items))
-
-							for _, i := range last.Items {
-								tmp[i] = struct{}{}
-							}
-							for _, i := range lf.Items { // For each new...
-								if _, found := tmp[i]; !found {
-									out <- i
-								}
-							}
+						newItems := findNewItems(last, lf)
+						for _, item := range newItems {
+							out <- item
 						}
+						last = lf
+
+						time.Sleep(n.poll)
 					}
-					last = lf
-					<-sema
-					time.Sleep(n.poll)
 				}
 			}
 		}(u)
