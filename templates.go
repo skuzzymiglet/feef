@@ -2,7 +2,10 @@ package main
 
 import (
 	"text/template"
+
 	"time"
+
+	"github.com/gosimple/slug"
 )
 
 var defaultFuncMap = map[string]interface{}{
@@ -11,6 +14,9 @@ var defaultFuncMap = map[string]interface{}{
 	},
 	"format": func(fmt string, t time.Time) string {
 		return t.Format(fmt)
+	},
+	"slug": func(s string) string {
+		return slug.Make(s)
 	},
 }
 
