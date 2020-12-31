@@ -15,13 +15,13 @@ import (
 func findNewItems(oldFeed, newFeed LinkedFeed) []LinkedFeedItem {
 	var buf []LinkedFeedItem
 	if len(newFeed.Items) > len(oldFeed.Items) {
-		tmp := make(map[LinkedFeedItem]struct{}, len(newFeed.Items))
+		tmp := make(map[string]struct{}, len(newFeed.Items))
 
 		for _, i := range oldFeed.Items {
-			tmp[i] = struct{}{}
+			tmp[i.GUID] = struct{}{}
 		}
 		for _, i := range newFeed.Items { // For each new...
-			if _, found := tmp[i]; !found {
+			if _, found := tmp[i.GUID]; !found {
 				buf = append(buf, i)
 			}
 		}
