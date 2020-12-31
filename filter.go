@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Filter(p FilterParam, in, out chan LinkedFeedItem, errChan chan error) {
+func Filter(p FilterParam, in <-chan LinkedFeedItem, out chan<- LinkedFeedItem, errChan chan error) {
 	var buf []LinkedFeedItem
 	var sent int
 	for i := range in { // TODO: more specific queries
@@ -31,7 +31,7 @@ func Filter(p FilterParam, in, out chan LinkedFeedItem, errChan chan error) {
 		if p.sort {
 			buf = append(buf, i)
 		} else if matched {
-			out <- i
+			out <- i // NOTE: not recieving from here causes Filter to block!
 			sent++
 		}
 	}
