@@ -1,8 +1,15 @@
-#!/bin/sh
+#!/bin/bash
 
-set -e
+# RSS reader, using fzf
+# dependencies: feef, bash, xargs, xdg-open (or set OPENER), wget (or set DOWNLOADER), fzf
 
-FMT="{{.Feed.Title}}: {{.Title}} @ {{.Link}} ({{.GUID}})"
-ITEMS="feef -s -p 10 -f '$FMT'"
-NEW="feef -n new -r 2m -f '+ $FMT'"
-sh -c "($ITEMS && $NEW) | fzf --bind 'enter:execute(cut -d@ -f2- <<< {} | xargs open),tab:toggle-sort,ctrl-d:execute(cut -d@ -f2- <<< {} | xargs download)'"
+set -euo pipefail
+
+open="${OPENER:-xdg-open}"
+download="${DOWNLOADER:-wget}"
+
+time='{{ if .PublishedParsed}}{{.PublishedParsed | datef "02/01" }}{{else}}??/??{{end}}'
+fmt="$time {{trunc 10 .Feed.Title}}: {{.Title}} @ {{.Link}} ({{.GUID}})"
+fzf_binds="enter:execute-silent(cut -d@ -f2- <<< {} | xargs $open &),tab:toggle-sort,ctrl-d:execute-silent(cut -d@ -f2- <<< {} | xargs $download &)"
+
+(feef -s -r 1m -f "$fmt" && feef -n new -r 1m -f "$fmt") | fzf --no-mouse --bind "$fzf_binds"
