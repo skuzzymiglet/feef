@@ -12,9 +12,11 @@ import (
 )
 
 func main() {
-	log.SetLevel(log.WarnLevel)
+	log.SetLevel(log.InfoLevel)
 	urls := make([]string, 0)
+
 	sc := bufio.NewScanner(os.Stdin)
+	fmt.Fprintf(os.Stderr, "%s: reading from stdin...\n", filepath.Base(os.Args[0]))
 	for sc.Scan() {
 		if !strings.HasPrefix(sc.Text(), "#") { // respect comments
 			urls = append(urls, sc.Text())
@@ -25,12 +27,14 @@ func main() {
 	client := &http.Client{}
 	guids := make(map[string]struct{})
 	for _, u := range urls {
+		log.Infof("fetching feed %s", u)
+		s := time.Now()
 		resp, err := client.Get(u)
 		if err != nil {
 			log.Warnf("error fetching feed %s: %s", u, err)
 			continue
 		}
-		log.Printf("Fetched %s, status code %d", u, resp.StatusCode)
+		log.Printf("Fetched %s, status code %d, took %s", u, resp.StatusCode, time.Now().Sub(s))
 		feeds[u], err = parser.Parse(resp.Body)
 		if err != nil {
 			log.Warnf("error parsing feed %s: %s", u, err)
