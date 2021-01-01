@@ -55,6 +55,7 @@ func main() {
 	flag.StringVarP(&urlsFile, "url-file", "U", defaultUrlsFile, "file with newline delimited URLs")
 	flag.StringVarP(&templateString, "template", "f", defaultTemplate, "output template for each feed item")
 	flag.StringVarP(&cmd, "exec", "c", "", "execute command template for each item")
+	// TODO: template to run with a slice of all items (webrings)
 	flag.IntVarP(&max, "max", "m", 0, "maximum items to output, 0 for no limit")
 	flag.DurationVarP(&timeout, "timeout", "t", time.Second*5, "feed-fetching timeout")
 	flag.IntVarP(&threads, "download-threads", "p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads") // NOTE: I'm not sure GOMAXPROCS is a reasonable default for this. Maybe we should set it to 1 for safety but that's slow
@@ -119,13 +120,20 @@ func main() {
 			if err != nil {
 				log.Fatalf("error compiling feed glob: %s", err)
 			}
+			matchedOne := false
 			for _, v := range urlsFileURLs {
 				if feedURL.Match(v) {
+					matchedOne = true
 					urls = append(urls, v)
 				}
 			}
-
+			if !matchedOne {
+				log.Warnf("URL glob %s matched no URLs in %s", urlGlob, urlsFile)
+			}
 		}
+	}
+	if len(urls) == 0 {
+		log.Fatalf("No URLs matched")
 	}
 
 	items := make(chan LinkedFeedItem, 1)
