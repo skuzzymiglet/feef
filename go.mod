@@ -13,6 +13,8 @@ require (
 	github.com/gosimple/slug v1.9.0
 	github.com/jarcoal/httpmock v1.0.6
 	github.com/kr/pretty v0.2.1
+	github.com/mattn/go-runewidth v0.0.9
+	github.com/microcosm-cc/bluemonday v1.0.4
 	github.com/mmcdole/gofeed v1.1.0
 	github.com/mmcdole/goxpp v0.0.0-20200921145534-2f3784f67354 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
