@@ -21,7 +21,7 @@ func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan cha
 		// TODO: match titles and stuff. But for that we need to fetch feed first ($$$)
 		go func(u string) {
 			defer wg.Done()
-			sema <- struct{}{}
+
 			log.Infoln("Fetching feed", u) // TODO: nicer progress?
 			parser := gofeed.NewParser()   // lol race
 			var body bytes.Reader
@@ -30,6 +30,7 @@ func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan cha
 				errChan <- fmt.Errorf("Error creating request for %s : %w", u, err)
 				return
 			}
+			sema <- struct{}{}
 			resp, err := p.client.Do(req)
 			if err != nil {
 				errChan <- fmt.Errorf("Error fetching %s : %w", u, err)
@@ -37,6 +38,7 @@ func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan cha
 			}
 			f, err := parser.Parse(resp.Body)
 			resp.Body.Close()
+			<-sema
 			if err != nil {
 				errChan <- fmt.Errorf("Error parsing %s : %w", u, err)
 				return
@@ -48,7 +50,7 @@ func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan cha
 			for _, i := range lf.Items {
 				out <- i
 			}
-			<-sema
+
 		}(u)
 	}
 	wg.Wait()
