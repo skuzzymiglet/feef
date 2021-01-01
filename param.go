@@ -10,7 +10,7 @@ import (
 type NotifyMode int
 
 const (
-	newItems NotifyMode = iota
+	newItems NotifyMode = iota + 1
 	allItems
 )
 
