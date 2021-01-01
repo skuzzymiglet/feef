@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/gosimple/slug"
+	"github.com/mattn/go-runewidth"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 var defaultFuncMap = map[string]interface{}{
@@ -17,6 +19,13 @@ var defaultFuncMap = map[string]interface{}{
 	},
 	"slug": func(s string) string {
 		return slug.Make(s)
+	},
+	"trunc": func(n int, s string) string {
+		return runewidth.Truncate(s, n, "")
+	},
+	// maybe multiple policies?
+	"sanitizeHTML": func(s string) string {
+		return bluemonday.StrictPolicy().Sanitize(s)
 	},
 }
 
