@@ -64,6 +64,14 @@ func main() {
 	flag.DurationVarP(&notifyPoll, "notify-poll-time", "r", 2*time.Minute, "time between feed refreshes in notification mode")
 
 	flag.StringSliceVarP(&urlGlobs, "url-glob", "u", []string{"*"}, "URLs or URL globs matched against URLs file")
+	// This glob stuff is silly
+	// https://* evaluates to a URL
+	// TODO: We should do prefixes:
+	// ~ fuzzy
+	// ? glob
+	// / regexp
+	// <nothing> for exact
+	// ambiguity is the devil's work
 	flag.StringVarP(&itemGlob, "item-glob", "i", "*", "item glob")
 
 	flag.Parse()
