@@ -1,9 +1,8 @@
 Version: 1
-Previous: 8d4c0719f3d947325a5067304de00469ba424dfa
-Head: b142c3eee283a04f4a9ae3a8c8616fe4c54b15d8
+Previous: e962d3038f9fb19a1ccb692e010ad5d2abeac69d
+Head: 43c7a1eb77c51934e456317088b8e5ee3bfc0456
 Applied:
-  doc: 029d855b6d979069fb77fbe5347dc5d0321ecbee
-  refresh-temp: b142c3eee283a04f4a9ae3a8c8616fe4c54b15d8
+  doc: 43c7a1eb77c51934e456317088b8e5ee3bfc0456
 Unapplied:
 Hidden:
   better-readme: 28fc60e6cc9387fac9659f96a90727eaca1a61d8
