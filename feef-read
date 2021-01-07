@@ -12,4 +12,7 @@ time='{{ if .PublishedParsed}}{{.PublishedParsed | datef "02/01" }}{{else}}??/??
 fmt="$time {{trunc 10 .Feed.Title}}: {{.Title}} @ {{.Link}} ({{.GUID}})"
 fzf_binds="enter:execute-silent(cut -d@ -f2- <<< {} | xargs $open &),tab:toggle-sort,ctrl-d:execute-silent(cut -d@ -f2- <<< {} | xargs $download &)"
 
-(feef -s -r 1m -f "$fmt" && feef -n new -r 1m -f "$fmt") | fzf --no-mouse --bind "$fzf_binds"
+(
+    feef -s -r 1m -f "$fmt"
+    # && feef -n new -r 1m -f "$fmt"
+) | fzf --no-mouse --bind "$fzf_binds"

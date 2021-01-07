@@ -36,20 +36,18 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 		// TODO: don't download feeds if they weren't modified.
 		// When only showing new items, fetch the initial feed
 		// Othwerwise start with nothing
-		initial := n.mode == newItems
-
+		initial := true
 		var last LinkedFeed
 		wg.Add(1)
 		go func(u string) {
-			parser := gofeed.NewParser() // lol race
+			// gofeed.Parser is not thread-safe ()
+			parser := gofeed.NewParser()
 			defer wg.Done()
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				default:
-
-					log.Debugln("refreshing", u)
 					var body bytes.Reader
 					req, err := http.NewRequestWithContext(ctx, "GET", u, &body)
 					if err != nil {
@@ -75,18 +73,19 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 					if lf.Feed.FeedLink != u {
 						log.Debugf("feed request url and self-reference url mismatch: requested %s, got %s", u, lf.Feed.FeedLink)
 					}
-
-					if initial { // Don't compare
+					if initial && n.mode == newItems {
+						// immediately move on in "newItems" mode
 						initial = false
 					} else {
 						newItems := findNewItems(last, lf)
 						for _, item := range newItems {
 							out <- item
 						}
-						last = lf
-
 						time.Sleep(n.poll)
 					}
+
+					last = lf
+
 				}
 			}
 		}(u)
