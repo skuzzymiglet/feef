@@ -40,7 +40,7 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 		var last LinkedFeed
 		wg.Add(1)
 		go func(u string) {
-			// gofeed.Parser is not thread-safe ()
+			// gofeed.Parser is not thread-safe
 			parser := gofeed.NewParser()
 			defer wg.Done()
 			for {
