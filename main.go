@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -20,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/profile"
 	flag "github.com/spf13/pflag"
 
 	"github.com/gobwas/glob"
@@ -27,6 +27,7 @@ import (
 )
 
 func main() {
+	defer profile.Start(profile.MemProfile).Stop()
 	var defaultUrlsFile string
 	cdir, err := os.UserConfigDir()
 	if err == nil {
@@ -47,8 +48,11 @@ func main() {
 		notifyMode     string
 		notifyPoll     time.Duration
 
-		urlGlobs []string
+		urlSpecs []string
 		itemGlob string
+
+		memProfile bool
+		cpuProfile bool
 	)
 	flag.BoolVarP(&help, "help", "h", false, "print help and exit")
 	flag.StringVarP(&logLevel, "loglevel", "l", "info", "log level")
@@ -63,16 +67,12 @@ func main() {
 	flag.StringVarP(&notifyMode, "notify-mode", "n", "none", "notification mode (none, new or all)")
 	flag.DurationVarP(&notifyPoll, "notify-poll-time", "r", 2*time.Minute, "time between feed refreshes in notification mode")
 
-	flag.StringSliceVarP(&urlGlobs, "url-glob", "u", []string{"*"}, "URLs or URL globs matched against URLs file")
-	// This glob stuff is silly
-	// https://* evaluates to a URL
-	// TODO: We should do prefixes:
-	// ~ fuzzy
-	// ? glob
-	// / regexp
-	// <nothing> for exact
-	// ambiguity is the devil's work
+	// NOTE: pflag doesn't let you re-specify flags, which is more foolproof than splitting by ','. Maybe getopt?
+	flag.StringSliceVarP(&urlSpecs, "url-spec", "u", []string{"~"}, "List of URLs or URL patterns to match against the URLs file (prefixes: / for regexp, ~ for fuzzy match, ? for glob)") // poor documentation
 	flag.StringVarP(&itemGlob, "item-glob", "i", "*", "item glob")
+
+	flag.BoolVar(&memProfile, "memory-profile", false, "record memory profile")
+	flag.BoolVar(&cpuProfile, "cpu-profile", false, "record CPU profile")
 
 	flag.Parse()
 
@@ -105,10 +105,11 @@ func main() {
 			   people may want to separate youtube URLs from, say reddit
 		       TODO: fetch newly added feed URLs (fsnotify)
 	*/
-	urls := make([]string, 0)
-	var urlsFileURLs []string
+	var (
+		urls         []string
+		urlsFileURLs []string
+	)
 	if urlsFile != "" { // TODO: treatment of empty URLs parameter is a tad confusing
-
 		file, err := os.Open(urlsFile)
 		if err != nil {
 			log.Fatal(err)
@@ -116,29 +117,15 @@ func main() {
 		urlsFileURLs = parseURLs(file)
 		file.Close()
 	}
-	for _, urlGlob := range urlGlobs {
-		if u, err := url.ParseRequestURI(urlGlob); err == nil && u.Scheme != "" { // URL provided is exact, no matching needed
-			urls = append(urls, urlGlob)
-		} else {
-			if len(urlsFileURLs) == 0 {
-				log.Fatalf("URL glob '%s' provided but no URLs to match against", urlGlob)
-			}
-			var feedURL glob.Glob
-			feedURL, err = glob.Compile(urlGlob)
-			if err != nil {
-				log.Fatalf("error compiling feed glob: %s", err)
-			}
-			matchedOne := false
-			for _, v := range urlsFileURLs {
-				if feedURL.Match(v) {
-					matchedOne = true
-					urls = append(urls, v)
-				}
-			}
-			if !matchedOne {
-				log.Warnf("URL glob %s matched no URLs in %s", urlGlob, urlsFile)
-			}
+	for _, urlSpec := range urlSpecs {
+		u, err := matchURLSpec(urlSpec, urlsFileURLs)
+		if err != nil {
+			log.Fatalf("Error parsing URL spec: %s", err)
 		}
+		if len(u) == 0 {
+			log.Warnf("URL spec %s matched no URLs in %s", urlSpec, urlsFile)
+		}
+		urls = append(urls, u...)
 	}
 	if len(urls) == 0 {
 		log.Fatalf("No URLs matched")
@@ -232,6 +219,7 @@ func main() {
 				if err != nil {
 					switch exitError := err.(type) {
 					case *exec.ExitError:
+						// Fatal for now TODO: make configurable
 						log.Errorf("error running command %s: %s", cmdBuf.String(), exitError)
 					default:
 						log.Fatal(err)
@@ -241,7 +229,7 @@ func main() {
 			}
 			err := tmpl.Execute(&buf, val)
 			if err != nil {
-				log.Errorln("error executing template:", err)
+				log.Fatalln("error executing template:", err)
 				fmt.Printf("(ERROR)")
 			} else {
 				io.Copy(os.Stdout, &buf)
