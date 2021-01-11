@@ -23,6 +23,9 @@ var defaultFuncMap = map[string]interface{}{
 	"trunc": func(n int, s string) string {
 		return runewidth.Truncate(s, n, "")
 	},
+	"truncPad": func(n int, s string) string {
+		return runewidth.FillRight(runewidth.Truncate(s, n, ""), n)
+	},
 	// maybe multiple policies?
 	"sanitizeHTML": func(s string) string {
 		return bluemonday.StrictPolicy().Sanitize(s)
