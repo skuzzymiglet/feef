@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/gobwas/glob"
@@ -14,11 +13,9 @@ const (
 	allItems
 )
 
-type GetParam struct {
-	client     *http.Client
-	timeout    time.Duration
-	urls       []string
-	maxThreads int
+type GetParam struct { // this is so bad
+	Fetcher
+	urls []string
 }
 
 type NotifyParam struct {

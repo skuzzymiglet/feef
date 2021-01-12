@@ -19,6 +19,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gregjones/httpcache"
+	"github.com/gregjones/httpcache/diskcache"
+	"github.com/peterbourgon/diskv"
 	"github.com/pkg/profile"
 	flag "github.com/spf13/pflag"
 
@@ -27,11 +30,23 @@ import (
 )
 
 func main() {
-	defer profile.Start(profile.MemProfile).Stop()
 	var defaultUrlsFile string
 	cdir, err := os.UserConfigDir()
 	if err == nil {
 		defaultUrlsFile = filepath.Join(cdir, "feef", "urls")
+	}
+
+	var client *http.Client
+	var itemCache *diskv.Diskv
+	cacheDir, err := os.UserCacheDir()
+	if err == nil {
+		err := os.Mkdir(filepath.Join(cacheDir, "feef"), 0640)
+		if err != nil && !os.IsExist(err) {
+			log.Fatal(err)
+		}
+		cache := diskcache.New(filepath.Join(cacheDir, "feef", "http"))
+		itemCache = diskv.New(diskv.Options{BasePath: filepath.Join(cacheDir, "feef", "items")})
+		client = &http.Client{Transport: httpcache.NewTransport(cache)}
 	}
 
 	// Names and stuff are a bit inconsistent here
@@ -75,6 +90,13 @@ func main() {
 	flag.BoolVar(&cpuProfile, "cpu-profile", false, "record CPU profile")
 
 	flag.Parse()
+
+	switch {
+	case memProfile:
+		defer profile.Start(profile.MemProfile).Stop()
+	case cpuProfile:
+		defer profile.Start().Stop()
+	}
 
 	if help {
 		flag.Usage()
@@ -138,10 +160,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	p := GetParam{
-		client:     &http.Client{Timeout: timeout}, // this is deprecated, TODO use context, I think
-		maxThreads: threads,
-		urls:       urls,
+		urls: urls,
+		Fetcher: Fetcher{
+			client:    client,
+			itemCache: itemCache,
+			sema:      make(chan struct{}, threads),
+		},
 	}
+
 	np := NotifyParam{
 		GetParam: p,
 		poll:     notifyPoll,
