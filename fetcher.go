@@ -30,6 +30,7 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (LinkedFeed, error) {
 	f.sema <- struct{}{}
 	resp, err := f.client.Do(req)
 	if err != nil {
+		<-f.sema
 		return LinkedFeed{}, fmt.Errorf("Error fetching %s : %w", url, err)
 	}
 	<-f.sema
