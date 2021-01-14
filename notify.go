@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"sync"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func findNewItems(oldFeed, newFeed LinkedFeed) []LinkedFeedItem {
@@ -22,65 +26,52 @@ func findNewItems(oldFeed, newFeed LinkedFeed) []LinkedFeedItem {
 }
 
 func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errChan chan error) {
-	panic(nil)
-	// var wg sync.WaitGroup
-	// for _, u := range n.urls {
-	// 	// TODO: don't download feeds if they weren't modified.
-	// 	// When only showing new items, fetch the initial feed
-	// 	// Othwerwise start with nothing
-	// 	initial := true
-	// 	var last LinkedFeed
-	// 	wg.Add(1)
-	// 	go func(u string) {
-	// 		// gofeed.Parser is not thread-safe
-	// 		parser := gofeed.NewParser()
-	// 		defer wg.Done()
-	// 		for {
-	// 			select {
-	// 			case <-ctx.Done():
-	// 				return
-	// 			default:
-	// 				var body bytes.Reader
-	// 				req, err := http.NewRequestWithContext(ctx, "GET", u, &body)
-	// 				if err != nil {
-	// 					errChan <- fmt.Errorf("Error creating request for %s : %w", u, err)
-	// 					return
-	// 				}
-	// 				sema <- struct{}{}
-	// 				resp, err := n.client.Do(req)
-	// 				if err != nil {
-	// 					errChan <- fmt.Errorf("Error fetching %s : %w", u, err)
-	// 					return
-	// 				}
+	var wg sync.WaitGroup
+	for _, u := range n.urls {
+		// When only showing new items, fetch the initial feed
+		// Othwerwise start with nothing
+		initial := true
+		var last LinkedFeed
+		wg.Add(1)
+		go func(u string) {
+			defer wg.Done()
+			// gofeed.Parser is not thread-safe
+			pollTicker := make(chan time.Time, 0)
+			defer close(pollTicker)
+			go func() {
+				pollTicker <- time.Now()
+				for tick := range time.Tick(n.poll) {
+					pollTicker <- tick
+				}
+			}()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-pollTicker:
+					lf, err := n.Fetcher.Fetch(ctx, u)
+					if err != nil {
+						errChan <- err
+						return
+					}
+					if lf.Feed.FeedLink != u {
+						log.Debugf("feed request url and self-reference url mismatch: requested %s, got %s", u, lf.Feed.FeedLink)
+					}
+					if initial && n.mode == newItems {
+						// immediately move on in "newItems" mode
+						initial = false
+					} else {
+						newItems := findNewItems(last, lf)
+						for _, item := range newItems {
+							out <- item
+						}
+						time.Sleep(n.poll)
+					}
+					last = lf
 
-	// 				feed, err := parser.Parse(resp.Body)
-	// 				resp.Body.Close()
-	// 				<-sema
-	// 				if err != nil {
-	// 					errChan <- fmt.Errorf("error parsing %s: %w", u, err)
-	// 					return
-	// 				}
-
-	// 				lf := LinkFeed(feed)
-	// 				if lf.Feed.FeedLink != u {
-	// 					log.Debugf("feed request url and self-reference url mismatch: requested %s, got %s", u, lf.Feed.FeedLink)
-	// 				}
-	// 				if initial && n.mode == newItems {
-	// 					// immediately move on in "newItems" mode
-	// 					initial = false
-	// 				} else {
-	// 					newItems := findNewItems(last, lf)
-	// 					for _, item := range newItems {
-	// 						out <- item
-	// 					}
-	// 					time.Sleep(n.poll)
-	// 				}
-
-	// 				last = lf
-
-	// 			}
-	// 		}
-	// 	}(u)
-	// }
-	// wg.Wait()
+				}
+			}
+		}(u)
+	}
+	wg.Wait()
 }
