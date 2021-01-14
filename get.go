@@ -7,8 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan chan error) {
-	// TODO: significant code duplication between get.go and notify.go. Needs to be cleaned up for maintainability
+func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan chan<- error) {
 	// Send work down a channel
 	var wg sync.WaitGroup
 	for _, u := range p.urls {
@@ -26,7 +25,6 @@ func Get(ctx context.Context, p GetParam, out chan<- LinkedFeedItem, errChan cha
 			for _, i := range lf.Items {
 				out <- i
 			}
-
 		}(u)
 	}
 	wg.Wait()
