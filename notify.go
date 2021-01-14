@@ -36,19 +36,11 @@ func Notify(ctx context.Context, n NotifyParam, out chan<- LinkedFeedItem, errCh
 		go func(u string) {
 			defer wg.Done()
 			// gofeed.Parser is not thread-safe
-			pollTicker := make(chan time.Time, 0)
-			defer close(pollTicker)
-			go func() {
-				pollTicker <- time.Now()
-				for tick := range time.Tick(n.poll) {
-					pollTicker <- tick
-				}
-			}()
 			for {
 				select {
 				case <-ctx.Done():
 					return
-				case <-pollTicker:
+				default:
 					lf, err := n.Fetcher.Fetch(ctx, u)
 					if err != nil {
 						errChan <- err
