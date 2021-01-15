@@ -95,6 +95,8 @@ func main() {
 
 	flag.Parse()
 
+	client.Timeout = timeout
+
 	switch {
 	case memProfile:
 		defer profile.Start(profile.MemProfile).Stop()
