@@ -51,17 +51,19 @@ func main() {
 
 	// Names and stuff are a bit inconsistent here
 	var (
-		help           bool
-		logLevel       string
-		urlsFile       string
-		templateString string
-		cmd            string
-		max            int
-		timeout        time.Duration
-		threads        int
-		sort           bool
-		notifyMode     string
-		notifyPoll     time.Duration
+		help                bool
+		logLevel            string
+		urlsFile            string
+		templateString      string
+		cmd                 string
+		max                 int
+		timeout             time.Duration
+		threads             int
+		sort                bool
+		notifyMode          string
+		notifyPoll          time.Duration
+		exitOnFailedCommand bool
+		exitOnFailedFetch   bool
 
 		urlSpecs []string
 		itemGlob string
@@ -77,6 +79,8 @@ func main() {
 	// TODO: template to run with a slice of all items (webrings)
 	flag.IntVarP(&max, "max", "m", 0, "maximum items to output, 0 for no limit")
 	flag.DurationVarP(&timeout, "timeout", "t", time.Second*5, "feed-fetching timeout")
+	flag.BoolVarP(&exitOnFailedCommand, "exit-on-failed-command", "e", false, "exit if a command (-c) fails")
+	flag.BoolVarP(&exitOnFailedFetch, "exit-on-failed-fetch", "E", false, "exit if fetching a feed fails")
 	flag.IntVarP(&threads, "download-threads", "p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads") // NOTE: I'm not sure GOMAXPROCS is a reasonable default for this. Maybe we should set it to 1 for safety but that's slow
 	flag.BoolVarP(&sort, "sort", "s", false, "sort feed items chronologically")
 	flag.StringVarP(&notifyMode, "notify-mode", "n", "none", "notification mode (none, new or all)")
@@ -218,11 +222,10 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, die...) // BUG: SIGPIPEs are not handled in notify new mode (strange)
 
+	// Buffers, so we don't print partially executed, errored templates
 	var (
-		// stdout is bytes, only io.Copy is used
-		buf bytes.Buffer // Buffers, so we don't print partially executed, errored templates
-		// command is string, only every read as string
-		cmdBuf strings.Builder
+		tmplBuf bytes.Buffer
+		cmdBuf  strings.Builder
 	)
 	for {
 		select {
@@ -245,21 +248,24 @@ func main() {
 				if err != nil {
 					switch exitError := err.(type) {
 					case *exec.ExitError:
-						// Fatal for now TODO: make configurable
-						log.Errorf("error running command %s: %s", cmdBuf.String(), exitError)
+						if exitOnFailedCommand {
+							log.Fatalf("error running command %s: %s", cmdBuf.String(), exitError)
+						} else {
+							log.Errorf("error running command %s: %s", cmdBuf.String(), exitError)
+						}
 					default:
 						log.Fatal(err)
 					}
 				}
 				cmdBuf.Reset()
 			}
-			err := tmpl.Execute(&buf, val)
+			err := tmpl.Execute(&tmplBuf, val)
 			if err != nil {
 				log.Fatalln("error executing template:", err)
 				fmt.Printf("(ERROR)")
 			} else {
-				io.Copy(os.Stdout, &buf)
-				buf.Reset()
+				io.Copy(os.Stdout, &tmplBuf)
+				tmplBuf.Reset()
 			}
 			fmt.Println() // TODO: let template choose newline. but kinda eh
 		}
