@@ -13,6 +13,15 @@ import (
 	"github.com/gosimple/slug"
 )
 
+type HTTPStatusCodeError struct {
+	req  http.Request
+	resp http.Response
+}
+
+func (h *HTTPStatusCodeError) Error() string {
+	return fmt.Sprintf("Error fetching %s: status code %d", h.req.URL.String(), h.resp.StatusCode)
+}
+
 type Fetcher struct {
 	client    *http.Client
 	sema      chan struct{}

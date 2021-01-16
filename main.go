@@ -80,7 +80,7 @@ func main() {
 	flag.IntVarP(&max, "max", "m", 0, "maximum items to output, 0 for no limit")
 	flag.DurationVarP(&timeout, "timeout", "t", time.Second*5, "feed-fetching timeout")
 	flag.BoolVarP(&exitOnFailedCommand, "exit-on-failed-command", "e", false, "exit if a command (-c) fails")
-	flag.BoolVarP(&exitOnFailedFetch, "exit-on-failed-fetch", "E", false, "exit if fetching a feed fails")
+	flag.BoolVarP(&exitOnFailedFetch, "exit-on-failed-fetch", "E", false, "exit if fetching a feed fails (4xx or 5xx response code)")
 	flag.IntVarP(&threads, "download-threads", "p", runtime.GOMAXPROCS(0), "maximum number of concurrent downloads") // NOTE: I'm not sure GOMAXPROCS is a reasonable default for this. Maybe we should set it to 1 for safety but that's slow
 	flag.BoolVarP(&sort, "sort", "s", false, "sort feed items chronologically")
 	flag.StringVarP(&notifyMode, "notify-mode", "n", "none", "notification mode (none, new or all)")
