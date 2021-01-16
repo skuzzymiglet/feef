@@ -11,9 +11,6 @@ import (
 )
 
 var defaultFuncMap = map[string]interface{}{
-	"date": func(t time.Time) string {
-		return t.Format("January 2, 2006")
-	},
 	"datef": func(fmt string, t time.Time) string {
 		return t.Format(fmt)
 	},
