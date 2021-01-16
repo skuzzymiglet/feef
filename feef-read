@@ -9,10 +9,13 @@ open="${OPENER:-xdg-open}"
 download="${DOWNLOADER:-wget}"
 
 time='{{ if .PublishedParsed}}{{.PublishedParsed | datef "02/01" }}{{else}}??/??{{end}}'
-fmt="$time {{trunc 10 .Feed.Title}}: {{.Title}} @ {{.Link}} ({{.GUID}})"
-fzf_binds="enter:execute-silent(cut -d@ -f2- <<< {} | xargs $open &),tab:toggle-sort,ctrl-d:execute-silent(cut -d@ -f2- <<< {} | xargs $download &)"
+fmt="{{truncPad 13 .Feed.Title}} | {{truncPad 75 .Title}} | $time | @ {{.Link}} # {{.GUID}} "
+
+openCmd="cut -d@ -f2- <<< {} | xargs $open &"
+fzf_binds="enter:execute-silent($openCmd),tab:toggle-sort,ctrl-d:execute-silent(cut -d@ -f2- <<< {} | xargs $download &),ctrl-r:reload(feef -s -f \"$fmt\")"
 
 (
-    feef -s -r 1m -f "$fmt"
+    feef -l error -s -p 10 -f "$fmt" &&
+        feef -l fatal -n new -p 1 -r 1m -f "+ $fmt" -c "notify-send \"{{.Feed.Title}}\" \"{{.Title}}\""
     # && feef -n new -r 1m -f "$fmt"
 ) | fzf --no-mouse --bind "$fzf_binds"
