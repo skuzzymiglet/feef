@@ -6,6 +6,7 @@ require (
 	git.sr.ht/~sircmpwn/go-bare v0.0.0-20201210182351-86af428a8287
 	github.com/PuerkitoBio/goquery v1.6.0 // indirect
 	github.com/andybalholm/cascadia v1.2.0 // indirect
+	github.com/antonmedv/expr v1.8.9
 	github.com/brianvoe/gofakeit/v5 v5.11.1
 	github.com/gobwas/glob v0.2.3
 	github.com/google/btree v1.0.0 // indirect

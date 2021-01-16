@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"time"
 
+	"github.com/antonmedv/expr"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -12,18 +14,15 @@ func Filter(p FilterParam, in <-chan LinkedFeedItem, out chan<- LinkedFeedItem, 
 	var buf []LinkedFeedItem
 	var sent int
 	for i := range in { // TODO: more specific queries
-		matched := true
-		switch {
-		case p.item.Match(i.Link):
-			log.Debugf("item %s's link matched", i.GUID)
-		case p.item.Match(i.Title):
-			log.Debugf("item %s's title matched", i.GUID)
-		case (i.Author != nil && p.item.Match(i.Author.Name)):
-			log.Debugf("item %s's author name matched", i.GUID)
-		case (i.Author != nil && p.item.Match(i.Author.Email)):
-			log.Debugf("item %s's email matched", i.GUID)
-		default:
-			matched = false
+		output, err := expr.Run(p.matcher, i)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		matched, ok := output.(bool)
+		if !ok {
+			errChan <- errors.New("Expression didn't return a bool")
+			return
 		}
 		if p.max != 0 && sent >= p.max {
 			return

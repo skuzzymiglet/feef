@@ -19,13 +19,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/antonmedv/expr"
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/diskcache"
 	"github.com/peterbourgon/diskv"
 	"github.com/pkg/profile"
 	flag "github.com/spf13/pflag"
 
-	"github.com/gobwas/glob"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -65,8 +65,8 @@ func main() {
 		exitOnFailedCommand bool
 		exitOnFailedFetch   bool
 
-		urlSpecs []string
-		itemGlob string
+		urlSpecs    []string
+		itemMatcher string
 
 		memProfile bool
 		cpuProfile bool
@@ -88,7 +88,7 @@ func main() {
 
 	// NOTE: pflag doesn't let you re-specify flags, which is more foolproof than splitting by ','. Maybe getopt?
 	flag.StringSliceVarP(&urlSpecs, "url-spec", "u", []string{"~"}, "List of URLs or URL patterns to match against the URLs file (prefixes: / for regexp, ~ for fuzzy match, ? for glob)") // poor documentation
-	flag.StringVarP(&itemGlob, "item-glob", "i", "*", "item glob")
+	flag.StringVarP(&itemMatcher, "item-matcher", "i", "true", "expression to match feed items")
 
 	flag.BoolVar(&memProfile, "memory-profile", false, "record memory profile")
 	flag.BoolVar(&cpuProfile, "cpu-profile", false, "record CPU profile")
@@ -204,13 +204,11 @@ func main() {
 
 	// filtering
 	// TODO: flexible filtering with expr
-	fp := FilterParam{max: max, sort: sort, item: glob.MustCompile("*")}
-
-	item, err := glob.Compile(itemGlob)
+	fp := FilterParam{max: max, sort: sort}
+	fp.matcher, err = expr.Compile(itemMatcher)
 	if err != nil {
-		log.Fatal("error compiling item glob: ", err)
+		log.Fatalf("Error compiling matcher %s: %s", itemMatcher, err)
 	}
-	fp.item = item
 
 	if notifyMode != "none" {
 		log.Warn("Sorting in notify mode blocks forever, disabling sorting")

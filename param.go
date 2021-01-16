@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/gobwas/glob"
+	"github.com/antonmedv/expr/vm"
 )
 
 type NotifyMode int
@@ -27,6 +27,7 @@ type NotifyParam struct {
 type FilterParam struct {
 	max int
 	// urls    []string
-	sort bool // TODO: currently sorts by date. Make it clearer, maybe support sorting by other things
-	item glob.Glob
+	sort       bool // TODO: currently sorts by date. Make it clearer, maybe support sorting by other things
+	matcher    *vm.Program
+	matcherEnv interface{} // Unused
 }
