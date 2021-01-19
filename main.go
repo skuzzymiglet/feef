@@ -97,6 +97,10 @@ func main() {
 
 	client.Timeout = timeout
 
+	if templateString != "" { // Empty means empty
+		templateString = templateString + "\n"
+	}
+
 	switch {
 	case memProfile:
 		defer profile.Start(profile.MemProfile).Stop()
@@ -267,7 +271,6 @@ func main() {
 				io.Copy(os.Stdout, &tmplBuf)
 				tmplBuf.Reset()
 			}
-			fmt.Println() // TODO: let template choose newline. but kinda eh
 		}
 	}
 }
