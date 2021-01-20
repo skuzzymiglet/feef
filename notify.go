@@ -8,16 +8,30 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// anyTime returns one of PublishedParsed or UpdatedParsed if one is not nil
+func anyTime(lfi LinkedFeedItem) time.Time {
+	if lfi.UpdatedParsed == nil {
+		return *lfi.PublishedParsed
+	}
+	return *lfi.UpdatedParsed
+}
+
 func findNewItems(oldFeed, newFeed LinkedFeed) []LinkedFeedItem {
 	var buf []LinkedFeedItem
 	tmp := make(map[string]struct{}, len(newFeed.Items))
 
+	var newestInOld time.Time
 	for _, i := range oldFeed.Items {
 		tmp[i.GUID] = struct{}{}
+		if anyTime(i).After(newestInOld) {
+			newestInOld = anyTime(i)
+		}
 	}
 	for _, i := range newFeed.Items { // For each new...
 		if _, found := tmp[i.GUID]; !found {
-			buf = append(buf, i)
+			if anyTime(i).After(newestInOld) {
+				buf = append(buf, i)
+			}
 		}
 	}
 	return buf
