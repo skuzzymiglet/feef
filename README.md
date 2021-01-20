@@ -6,6 +6,14 @@ feef uses Go templates for output formatting and [expr](https://github.com/anton
 
 feef is not yet stable. Your mileage may vary as RSS can be very different across the web. If you find a bug or think a feature would go well with `feef`, create a GitHub issue or a Sourcehut ticket
 
+# examples
+
+```sh
+feef -f '{{.Link}}' -u '~lobsters' -i 'Title contains "Genode"' # Show me the links of items with titles containing Genode on Lobsters
+feef -n new -c "notify-send '{{.Feed.Title}}' '{{.Title}}'" -f '{{.Link}}' # Notify me of new items with notify-send
+feef -s -m 10 -c "wget -nc -O '{{slug .Title}}.mp3' '{{(index .Enclosures 0).URL}}' || echo {{.Title}} already downloaded" -u 'https://feeds.soundcloud.com/users/soundcloud:users:237055046/sounds.rss' # Download the 10 newest items of the Lingthusiasm podcast
+```
+
 # rationale
 
 + I needed a tool for downloading podcast episodes, and I'm not happy `grep`ping raw XML or manually copy-pasting links
@@ -83,14 +91,6 @@ Default: `none`
 + `-p n` allows up to _n_ threads to be fetching at the same time
 + `-l` controls the log level. This can be one of `panic`, `fatal`, `error`, `warn`, `info`, `debug` or `trace`, case-insensitive. See [the loglevel-parsing code](https://github.com/sirupsen/logrus/blob/master/logrus.go#L24)
 + `--cpu-profile` and `--memory-profile` run CPU and memory profiles respectively. The location of the profiles is printed to stderr at the end
-
-# examples
-
-```sh
-feef -f '{{.Link}}' -u '~lobsters' -i 'Title contains "Genode"' # Show me the links of items with titles containing Genode on Lobsters
-feef -n new -c "notify-send '{{.Feed.Title}}' '{{.Title}}'" -f '{{.Link}}' # Notify me of new items with notify-send
-feef -s -m 10 -c "wget -nc -O '{{slug .Title}}.mp3' '{{(index .Enclosures 0).URL}}' || echo {{.Title}} already downloaded" -u 'https://feeds.soundcloud.com/users/soundcloud:users:237055046/sounds.rss' # Download the 10 newest items of the Lingthusiasm podcast
-```
 
 # UI
 
