@@ -39,7 +39,7 @@ func matchURLSpec(spec string, urls []string) ([]string, error) {
 	switch {
 	case strings.HasPrefix(spec, "~"):
 		if len(urls) == 0 {
-			return []string{}, fmt.Errorf("fuzzy URL'%s' provided but no URLs to match against", spec)
+			return []string{}, fmt.Errorf("fuzzy URL '%s' provided but no URLs to match against", spec)
 		}
 		return fuzzy.Find(strings.TrimPrefix(spec, "~"), urls), nil
 	case strings.HasPrefix(spec, "/"):
@@ -59,7 +59,7 @@ func matchURLSpec(spec string, urls []string) ([]string, error) {
 		return matches, nil
 	case strings.HasPrefix(spec, "?"):
 		if len(urls) == 0 {
-			return []string{}, fmt.Errorf("URL glob'%s' provided but no URLs to match against", spec)
+			return []string{}, fmt.Errorf("URL glob '%s' provided but no URLs to match against", spec)
 		}
 		g, err := glob.Compile(strings.TrimPrefix(spec, "?"))
 		if err != nil {
