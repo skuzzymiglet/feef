@@ -28,9 +28,9 @@ Running `feef` with no options will print the GUID of every item of every feed i
 
 Use `-u` to specify an URL. You can use exact URL, or prefix with these symbols:
 
-+ `~` : fuzzy match
-+ `/` : regex (Go `regexp`) match
-+ `?` : glob match
++ ` ~`: fuzzy match
++ `/`: regex (Go `regexp`) match
++ `?`: glob match
 
 `~` and `/` alone can be used to match every URL
 
