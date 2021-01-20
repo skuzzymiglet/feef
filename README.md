@@ -86,9 +86,10 @@ Default: `none`
 
 # examples
 
-```
-feef -f '{{.Link}}' -u '~lobsters' -i 'Title contains "Genode"'
-feef -n new -c "notify-send '{{.Feed.Title}}' '{{.Title}}'" -f '{{.Link}}'
+```sh
+feef -f '{{.Link}}' -u '~lobsters' -i 'Title contains "Genode"' # Show me the links of items with titles containing Genode on Lobsters
+feef -n new -c "notify-send '{{.Feed.Title}}' '{{.Title}}'" -f '{{.Link}}' # Notify me of new items with notify-send
+feef -s -m 10 -c "wget -nc -O '{{slug .Title}}.mp3' '{{(index .Enclosures 0).URL}}' || echo {{.Title}} already downloaded" -u 'https://feeds.soundcloud.com/users/soundcloud:users:237055046/sounds.rss' # Download the 10 newest items of the Lingthusiasm podcast
 ```
 
 # UI
@@ -104,3 +105,12 @@ feef-read binds these keys:
 + `ctrl-d`: downloads the item's `Link` using `wget` or the `$DOWNLOADER` environment variable
 
 feef-read also notifies you of new items using `notify-send`
+
+# BUGS/TODO
+
+Bugs and TODOs are noted in comments near the relevant code. A quick `rg TODO` should work. Major ones are listed here:
+
++ Logging and loglevel separation need work
++ A way to work feed-wise is needed. Currently you can't retrieve info about a feed
++ Libify the logic
++ Provide more info to expr filters
