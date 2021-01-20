@@ -9,9 +9,12 @@ feef is not yet stable. Your mileage may vary as RSS can be very different acros
 # examples
 
 ```sh
-feef -f '{{.Link}}' -u '~lobsters' -i 'Title contains "Genode"' # Show me the links of items with titles containing Genode on Lobsters
-feef -n new -c "notify-send '{{.Feed.Title}}' '{{.Title}}'" -f '{{.Link}}' # Notify me of new items with notify-send
-feef -s -m 10 -c "wget -nc -O '{{slug .Title}}.mp3' '{{(index .Enclosures 0).URL}}' || echo {{.Title}} already downloaded" -u 'https://feeds.soundcloud.com/users/soundcloud:users:237055046/sounds.rss' # Download the 10 newest items of the Lingthusiasm podcast
+# Show me the links of items with titles containing Genode on Lobsters
+feef -f '{{.Link}}' -u '~lobsters' -i 'Title contains "Genode"'
+# Notify me of new items with notify-send
+feef -n new -c "notify-send '{{.Feed.Title}}' '{{.Title}}'" -f '{{.Link}}'
+# Download the 10 newest items of the Lingthusiasm podcast
+feef -s -m 10 -c "wget -nc -O '{{slug .Title}}.mp3' '{{(index .Enclosures 0).URL}}' || echo {{.Title}} already downloaded" -u 'https://feeds.soundcloud.com/users/soundcloud:users:237055046/sounds.rss'
 ```
 
 # rationale
@@ -23,6 +26,8 @@ feef -s -m 10 -c "wget -nc -O '{{slug .Title}}.mp3' '{{(index .Enclosures 0).URL
 # installation
 
 `go get -u -v git.sr.ht/~skuzzymiglet/feef`
+
+Or download a binary from [releases](https://github.com/skuzzymiglet/feef/releases) to somewhere in your `$PATH`
 
 Put file with the URLs you want to read, one per line, in `.config/feef/urls` or wherever you put your configs. Alternatively, specify a URLs file with the `-U` flag.
 
