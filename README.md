@@ -9,19 +9,25 @@ feef is not yet stable. Your mileage may vary as RSS can be very different acros
 # examples
 
 ```sh
+# Open a random item
+feef -f '{{.Link}}' | shuf -n1 | xargs $BROWSER
+# Print the links of the 10 newest items (newest to oldest)
+feef -f '{{.Link}}' -s -m 10
 # Show me the links of items with titles containing Genode on Lobsters
 feef -f '{{.Link}}' -u '~lobsters' -i 'Title contains "Genode"'
 # Notify me of new items with notify-send
-feef -n new -c "notify-send '{{.Feed.Title}}' '{{.Title}}'" -f '{{.Link}}'
+feef -n new -c "notify-send '{{.Feed.Title}}' '{{.Title}}'" -f ''
 # Download the 10 newest items of the Lingthusiasm podcast
 feef -s -m 10 -c "wget -nc -O '{{slug .Title}}.mp3' '{{(index .Enclosures 0).URL}}' || echo {{.Title}} already downloaded" -u 'https://feeds.soundcloud.com/users/soundcloud:users:237055046/sounds.rss'
 ```
 
+Additionaly, the `feef-read` script in this repository is a fzf-based feed reader.
+
 # rationale
 
 + I needed a tool for downloading podcast episodes, and I'm not happy `grep`ping raw XML or manually copy-pasting links
-+ I want to be notified of new items automatically
-+ I got annoyed with newsboat's UI. Read/unread was just an annoyance for me (I'm not reading every post on Reddit). The simple [feef-read](https://git.sr.ht/~skuzzymiglet/feef/tree/master/item/feef-read) script in this repo allows you to see everything at a glance, without visual clutter.
++ I want to be notified of new items automatically rather than polling newsboat
++ I found read/unread to be clutter, since I don't want to read every new item. `feef` doesn't track whether you read an item or not.
 
 # installation
 
@@ -36,6 +42,28 @@ Note you don't need a URLs file if you provide an exact URL to query
 # usage
 
 Running `feef` with no options will print the GUID of every item of every feed in your URLs file.
+
+## tldr
+
+```
+Usage of feef:
+      --cpu-profile                 record CPU profile
+  -p, --download-threads int        maximum number of concurrent downloads (default 4)
+  -c, --exec string                 execute command template for each item
+  -e, --exit-on-failed-command      exit if a command (-c) fails
+  -h, --help                        print help and exit
+  -i, --item-matcher string         expression to match feed items (default "true")
+  -l, --loglevel string             log level (default "info")
+  -m, --max int                     maximum items to output, 0 for no limit
+      --memory-profile              record memory profile
+  -n, --notify-mode string          notification mode (none, new or all) (default "none")
+  -r, --notify-poll-time duration   time between feed refreshes in notification mode (default 2m0s)
+  -s, --sort                        sort feed items chronologically, newest to oldest
+  -f, --template string             output template for each feed item (default "{{.GUID}}")
+  -t, --timeout duration            feed-fetching timeout (default 5s)
+  -U, --url-file string             file with newline delimited URLs (default "/home/skuzzymiglet/.config/feef/urls")
+  -u, --url-spec strings            List of URLs or URL patterns to match against the URLs file (prefixes: / for regexp, ~ for fuzzy match, ? for glob) (default [~])
+```
 
 ## URL matching
 
@@ -118,4 +146,4 @@ Bugs and TODOs are noted in comments near the relevant code. A quick `rg TODO` s
 + Logging and loglevel separation need work
 + A way to work feed-wise is needed. Currently you can't retrieve info about a feed
 + Libify the logic
-+ Provide more info to expr filters
++ Provide more information to filters
